@@ -35,10 +35,6 @@ export function StepCapture({
       setError("Please enter a valid work email.");
       return;
     }
-    if (!company.trim()) {
-      setError("Please enter your company name.");
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -137,12 +133,14 @@ export function StepCapture({
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="wl-company" className="text-xs font-semibold">
-            Company name <span className="text-brand-500">*</span>
+            Company name{" "}
+            <span className="font-normal text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
+              (optional)
+            </span>
           </label>
           <input
             id="wl-company"
             type="text"
-            required
             autoComplete="organization"
             placeholder="Enter your company name"
             value={company}

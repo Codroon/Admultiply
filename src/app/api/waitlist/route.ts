@@ -8,7 +8,7 @@ import { createClient } from "@supabase/supabase-js";
    create table if not exists waitlist (
      id uuid default gen_random_uuid() primary key,
      email text unique not null,
-     company text not null,
+     company text not null,     -- optional at the form layer; blank saved as ""
      business_type text,
      ad_spend text,
      platforms text[],
@@ -34,9 +34,9 @@ export async function POST(req: NextRequest) {
   const email = String(body?.email ?? "").trim().toLowerCase();
   const company = String(body?.company ?? "").trim();
 
-  if (!EMAIL_RE.test(email) || company.length < 1) {
+  if (!EMAIL_RE.test(email)) {
     return NextResponse.json(
-      { ok: false, error: "Please enter a valid email and company name." },
+      { ok: false, error: "Please enter a valid email address." },
       { status: 400 }
     );
   }
