@@ -5,91 +5,11 @@ import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { fadeUp, staggerContainer, viewportOnce } from "@/lib/motion";
 
-type Plan = {
-  name: string;
-  price: number;
-  blurb: string;
-  features: string[];
-  cta: string;
-  badge?: string;
-  highlighted?: boolean;
-};
+import { PLANS, type Plan } from "@/lib/plans";
 
 // Free + Plus share one card with a toggle (Notion-style)
-const freePlus: Plan[] = [
-  {
-    name: "Free",
-    price: 0,
-    blurb: "Trial of AdMultiply AI",
-    features: [
-      "4 video tokens / month",
-      "Low-res videos",
-      "Includes AdMultiply watermark",
-    ],
-    cta: "Start Free",
-  },
-  {
-    name: "Plus",
-    price: 9,
-    blurb: "Trial of AdMultiply AI",
-    features: [
-      "5 video tokens / month",
-      "Hi-res videos",
-      "No watermark",
-      "$1.80 per video repurposed",
-    ],
-    cta: "Get Plus",
-  },
-];
-
-const plans: Plan[] = [
-  {
-    name: "Starter",
-    price: 19,
-    blurb: "First videos free",
-    features: [
-      "10 video tokens / month",
-      "Hi-res videos",
-      "$1.90 per video repurposed",
-    ],
-    cta: "Get Starter",
-  },
-  {
-    name: "Creator",
-    price: 39,
-    blurb: "First video free",
-    features: [
-      "25 video tokens / month",
-      "Hi-res videos",
-      "$1.56 per video repurposed",
-    ],
-    cta: "Get Creator",
-    badge: "Most Popular",
-    highlighted: true,
-  },
-  {
-    name: "Pro",
-    price: 69,
-    blurb: "First video free",
-    features: [
-      "50 video tokens / month",
-      "Hi-res videos",
-      "$1.38 per video repurposed",
-    ],
-    cta: "Get Pro",
-  },
-  {
-    name: "Business",
-    price: 99,
-    blurb: "First video free",
-    features: [
-      "80 video tokens / month",
-      "Hi-res videos",
-      "$1.23 per video repurposed",
-    ],
-    cta: "Get Business",
-  },
-];
+const freePlus: Plan[] = PLANS.filter((p) => p.id === "free" || p.id === "plus");
+const plans: Plan[] = PLANS.filter((p) => p.id !== "free" && p.id !== "plus");
 
 export function Pricing() {
   return (
