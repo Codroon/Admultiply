@@ -1,7 +1,8 @@
 "use client";
 
 import { useDashboard } from "@/components/dashboard/dashboard-provider";
-import { OnboardingChecklist, StatStrip } from "@/components/dashboard/home-extras";
+import { HeroBand, StatStrip } from "@/components/dashboard/hero-band";
+import { Showcase } from "@/components/dashboard/showcase";
 import { ProcessingCard } from "@/components/dashboard/processing-card";
 import { ResultsSection } from "@/components/dashboard/results-section";
 import { UploadHero } from "@/components/dashboard/upload-hero";
@@ -14,10 +15,12 @@ export default function DashboardHome() {
   const isZeroState = jobs.length === 0;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
+      <HeroBand />
+
       {isZeroState ? (
         <>
-          <OnboardingChecklist />
+          <Showcase />
           <UploadHero />
         </>
       ) : (

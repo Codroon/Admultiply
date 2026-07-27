@@ -70,9 +70,9 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
     <section className={compact ? "" : "pt-2"}>
       {!compact && (
         <div className="mb-5 text-center">
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
             Upload your winning ad
-          </h1>
+          </h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
             Turn one best-converting ad into three new micro-ads to test, convert
             and extend ROI.
@@ -107,23 +107,37 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
             const f = e.dataTransfer.files?.[0];
             if (f) inspect(f);
           }}
-          whileHover={{ scale: 1.003 }}
-          className={`group flex w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed px-6 py-12 text-center transition-colors sm:py-16 ${
+          whileHover={{ y: -2 }}
+          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          className={`group relative isolate flex w-full flex-col items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed px-6 py-14 text-center transition-all duration-300 sm:py-20 ${
             dragging
-              ? "border-brand-500 bg-brand-500/[0.06]"
-              : "border-[var(--color-border-subtle)] bg-white hover:border-brand-500/50 hover:bg-brand-500/[0.03] dark:border-[var(--color-border-dark-subtle)] dark:bg-[var(--color-surface-dark-card)] dark:hover:bg-brand-500/[0.05]"
+              ? "border-brand-500 bg-brand-500/[0.07] shadow-xl shadow-brand-500/10"
+              : "border-[var(--color-border-subtle)] bg-white hover:border-brand-500/60 hover:shadow-lg hover:shadow-brand-500/[0.07] dark:border-[var(--color-border-dark-subtle)] dark:bg-[var(--color-surface-dark-card)]"
           }`}
         >
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-500 transition-transform group-hover:-translate-y-0.5">
-            <UploadCloud size={26} strokeWidth={2} />
+          {/* Ambient glow that wakes on hover / drag */}
+          <span
+            className={`pointer-events-none absolute left-1/2 top-0 -z-10 h-48 w-80 -translate-x-1/2 rounded-full bg-brand-500/15 blur-[70px] transition-opacity duration-500 ${
+              dragging ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+            }`}
+          />
+
+          <span
+            className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-lg shadow-brand-500/30 transition-transform duration-300 group-hover:-translate-y-1 group-hover:scale-105"
+            style={{ animation: "float-slow 4.5s ease-in-out infinite" }}
+          >
+            <UploadCloud size={28} strokeWidth={2} />
           </span>
-          <p className="mt-4 text-base font-semibold">
-            Drag &amp; drop your video, or click to browse
+
+          <p className="mt-5 text-base font-semibold sm:text-lg">
+            {dragging
+              ? "Drop it — we'll take it from here"
+              : "Drag & drop your video, or click to browse"}
           </p>
           <p className="mt-1.5 text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
             MP4, MOV or AVI · up to 1 min 30 s
           </p>
-          <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand-500/10 px-3 py-1 text-[11px] font-bold text-brand-600 dark:text-brand-400">
+          <span className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-brand-500/10 px-3.5 py-1.5 text-[11px] font-bold text-brand-600 ring-1 ring-brand-500/20 dark:text-brand-400">
             <Sparkles size={11} />
             1 token → 3 variations
           </span>
