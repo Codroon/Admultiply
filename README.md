@@ -28,7 +28,8 @@ AI video repurposing platform: upload **one winning video ad** (60–120s) and A
 5. **Billing** — Stripe subscriptions, token ledger (1 token = 1 upload = 3 variations; downloads gated by tier, never tokens), Customer Portal.
 6. **Analytics** — PostHog (behaviour/funnels) + Metabase on Postgres (investor dashboards) + event capture for the data flywheel.
 7. **Admin basics** — user/job overview, dead-letter queue view.
-8. **Launch flip** — landing back to `/`, waitlist to `/waitlist`, real showcase content + demo video, ToS/Privacy (incl. AI-training clause), remove demo controls, rotate keys, transfer accounts to client.
+8. **Public showcase (backend-driven)** — the "Made with AdMultiply" gallery goes live-data only when (a) the customer has **opted in** to sharing (`share_publicly`, default OFF, toggle in Settings) and (b) the library holds enough real micro-ads (**~50–100**, configurable). Until then it runs on sample clips.
+9. **Launch flip** — landing back to `/`, waitlist to `/waitlist`, real showcase content + demo video, ToS/Privacy (incl. AI-training clause), remove demo controls, rotate keys, transfer accounts to client.
 
 Full architecture and costs: see [`docs/backend-mvp-plan.md`](docs/backend-mvp-plan.md) and [`docs/backend-architecture.md`](docs/backend-architecture.md).
 

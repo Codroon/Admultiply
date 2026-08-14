@@ -55,7 +55,7 @@ export default function SettingsPage() {
       <Card className="p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-bold">Appearance</h2>
+            <h2 className="text-sm font-bold">View mode</h2>
             <p className="mt-0.5 text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
               Switch between light and dark themes.
             </p>

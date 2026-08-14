@@ -22,8 +22,8 @@ export const PLANS: Plan[] = [
     name: "Free",
     price: 0,
     blurb: "Trial of AdMultiply AI",
-    tokens: 4,
-    features: ["4 video tokens / month", "Low-res videos", "Includes AdMultiply watermark"],
+    tokens: 3,
+    features: ["3 video tokens / month", "Low-res videos", "Includes AdMultiply watermark"],
     cta: "Start Free",
     hd: false,
   },
@@ -83,6 +83,20 @@ export const PLANS: Plan[] = [
 
 export const getPlan = (id: PlanId): Plan =>
   PLANS.find((p) => p.id === id) ?? PLANS[0];
+
+/* PLANS is ordered cheapest → richest, so "the next tier up" is the next entry. */
+export const nextPlan = (id: PlanId): Plan | null => {
+  const i = PLANS.findIndex((p) => p.id === id);
+  return i >= 0 && i < PLANS.length - 1 ? PLANS[i + 1] : null;
+};
+
+/* Label for the upsell button — always names the next tier up, so the user
+   sees one clear step rather than a vague "upgrade". Returns null on the top
+   tier, where there is nothing left to sell. */
+export const upgradeCta = (id: PlanId): string | null => {
+  const next = nextPlan(id);
+  return next ? `Upgrade to ${next.name}` : null;
+};
 
 /* 1 token = 1 upload = 3 variations. Downloads are gated by tier, never by tokens. */
 export const TOKEN_RULE = "1 token = 1 video upload → 3 variations";
