@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Check } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { getPlan } from "@/lib/plans";
+import { getPlan, upgradeCta } from "@/lib/plans";
 import { useDashboard } from "./dashboard-provider";
 
 function useGreeting() {
@@ -26,7 +26,7 @@ export function HeroBand() {
   const steps = [
     { label: "Upload your winning ad", done: jobs.length > 0 },
     { label: "Preview your 3 variations", done: previewPlayed },
-    { label: "Download your favourite", done: anyDownloaded },
+    { label: "Download your favourites", done: anyDownloaded },
   ];
   const allDone = steps.every((s) => s.done);
 
@@ -65,11 +65,11 @@ export function HeroBand() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.12 }}
-        className="mt-2 max-w-md text-sm text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]"
+        className="mt-2 max-w-lg text-sm text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]"
       >
         {allDone
           ? "Your winning creatives are multiplying. Keep the streak going."
-          : "Let's turn your best-performing ad into three fresh micro-ads."}
+          : "Let's turn your best-performing ad into three performance-ready micro-ads."}
       </motion.p>
 
       {/* Onboarding as inline progress pills */}
@@ -111,6 +111,7 @@ export function HeroBand() {
 export function StatStrip() {
   const { jobs, tokens, plan } = useDashboard();
   const ready = jobs.filter((j) => j.stage === "ready").length;
+  const cta = upgradeCta(plan);
 
   const stats = [
     { label: "Winning ads repurposed", value: String(ready) },
@@ -133,12 +134,24 @@ export function StatStrip() {
           Current plan
         </p>
         <p className="mt-1.5 text-lg font-bold">{getPlan(plan).name}</p>
-        <Link
-          href="/dashboard/billing"
-          className="mt-1 text-xs font-semibold text-brand-600 hover:underline dark:text-brand-400"
-        >
-          Manage billing →
-        </Link>
+        {cta ? (
+          <Link
+            href="/dashboard/billing#plans"
+            /* narrow card on mobile — drop the icon and tighten the type so the
+               longest label ("Upgrade to Business") never wraps */
+            className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-brand-500 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-sm shadow-brand-500/30 transition-all hover:bg-brand-600 active:scale-[0.98] sm:text-[11px]"
+          >
+            <Sparkles size={11} className="hidden shrink-0 sm:block" />
+            {cta}
+          </Link>
+        ) : (
+          <Link
+            href="/dashboard/billing"
+            className="mt-1 text-xs font-semibold text-brand-600 hover:underline dark:text-brand-400"
+          >
+            Manage billing →
+          </Link>
+        )}
       </Card>
     </div>
   );

@@ -20,7 +20,7 @@ import { ToastProvider } from "@/components/ui/toast";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { DashboardProvider, useDashboard } from "./dashboard-provider";
 import { UpgradeModal } from "./upgrade-modal";
-import { getPlan } from "@/lib/plans";
+import { getPlan, upgradeCta } from "@/lib/plans";
 
 const NAV = [
   { href: "/dashboard", label: "Home", icon: Home },
@@ -143,7 +143,7 @@ function ShellInner({ children }: { children: ReactNode }) {
           ) : (
             <div className="flex items-center justify-between px-2">
               <span className="text-xs font-medium text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-                Appearance
+                View mode
               </span>
               <ThemeToggle />
             </div>
@@ -152,6 +152,7 @@ function ShellInner({ children }: { children: ReactNode }) {
             name={userName}
             email={email}
             planName={getPlan(plan).name}
+            upgradeLabel={upgradeCta(plan)}
             collapsed={collapsed}
           />
         </div>
@@ -181,8 +182,10 @@ function ShellInner({ children }: { children: ReactNode }) {
           </span>
           <div className="flex items-center gap-3">
             <TokenChip tokens={tokens} />
+            {/* "Get more" lands on Billing & Plan, scrolled to the plan grid —
+                at launch each plan button opens Stripe checkout. */}
             <Link
-              href="/dashboard/billing"
+              href="/dashboard/billing#plans"
               className="text-xs font-semibold text-brand-600 hover:underline dark:text-brand-400"
             >
               Get more
@@ -229,7 +232,7 @@ function TokenChip({ tokens }: { tokens: number }) {
   const empty = tokens <= 0;
   return (
     <Link
-      href="/dashboard/billing"
+      href="/dashboard/billing#plans"
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition-colors ${
         empty
           ? "bg-red-500/10 text-red-600 ring-red-500/20 dark:text-red-400"
@@ -246,11 +249,13 @@ function AccountMenu({
   name,
   email,
   planName,
+  upgradeLabel,
   collapsed,
 }: {
   name: string;
   email: string;
   planName: string;
+  upgradeLabel: string | null;
   collapsed: boolean;
 }) {
   const avatar = (
@@ -283,9 +288,11 @@ function AccountMenu({
         <p className="truncate text-xs font-semibold">{email}</p>
       </div>
       <div className="pt-1">
-        <Link href="/dashboard/billing">
-          <DropdownItem icon={<Sparkles size={14} />}>Upgrade plan</DropdownItem>
-        </Link>
+        {upgradeLabel && (
+          <Link href="/dashboard/billing#plans">
+            <DropdownItem icon={<Sparkles size={14} />}>{upgradeLabel}</DropdownItem>
+          </Link>
+        )}
         <Link href="/dashboard/settings">
           <DropdownItem icon={<Settings size={14} />}>Settings</DropdownItem>
         </Link>

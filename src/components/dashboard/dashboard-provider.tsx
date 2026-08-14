@@ -73,7 +73,19 @@ export const useDashboard = () => {
   return ctx;
 };
 
-const STORAGE_KEY = "admultiply-demo-v1";
+const STORAGE_KEY = "admultiply-demo-v2";
+
+/* New accounts start on Free; the allowance comes from plans.ts so the number
+   is never duplicated across the app. */
+const INITIAL_STATE: State = {
+  userName: "Alex",
+  email: "alex@company.com",
+  plan: "free",
+  tokens: getPlan("free").tokens,
+  jobs: [],
+  previewPlayed: false,
+  anyDownloaded: false,
+};
 
 const STOCK = [
   {
@@ -117,15 +129,7 @@ const PLAN_LINES = [
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const toast = useToast();
   const [hydrated, setHydrated] = useState(false);
-  const [state, setState] = useState<State>({
-    userName: "Alex",
-    email: "alex@company.com",
-    plan: "free",
-    tokens: 4,
-    jobs: [],
-    previewPlayed: false,
-    anyDownloaded: false,
-  });
+  const [state, setState] = useState<State>(INITIAL_STATE);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -291,15 +295,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const resetDemo = useCallback(() => {
     timers.current.forEach(clearTimeout);
     timers.current = [];
-    setState({
-      userName: "Alex",
-      email: "alex@company.com",
-      plan: "free",
-      tokens: 4,
-      jobs: [],
-      previewPlayed: false,
-      anyDownloaded: false,
-    });
+    setState(INITIAL_STATE);
     toast("Demo reset", "info");
   }, [toast]);
 

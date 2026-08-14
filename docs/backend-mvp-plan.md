@@ -162,7 +162,7 @@ Per plan, at **full token utilization** (the worst case for margin). Stripe fee 
 
 | Plan | Price | Tokens | Video cost | Stripe fee | ~Total cost | **Gross margin** |
 |---|---:|---:|---:|---:|---:|---:|
-| **Free** | $0 | 4/mo | $0.60 | $0 | ~$0.62 | **−$0.62 (loss — see below)** |
+| **Free** | $0 | 3/mo | $0.45 | $0 | ~$0.47 | **−$0.47 (acquisition cost — see below)** |
 | **Plus** | $9 | 5 | $0.75 | $0.62 | ~$1.42 | **~84%** |
 | **Starter** | $19 | 10 | $1.50 | $0.98 | ~$2.58 | **~86%** |
 | **Creator** ⭐ | $39 | 25 | $3.75 | $1.70 | ~$5.65 | **~86%** |
@@ -171,15 +171,18 @@ Per plan, at **full token utilization** (the worst case for margin). Stripe fee 
 
 **Every paid tier clears ~83–86% margin at full usage — and most users won't use all their tokens, so real margins trend to ~90%.** The plans are sound. The per-video overage prices ($1.56–$2.00) carry ~90% margin against the $0.15 true cost, so overages are pure upside.
 
-### ⚠️ The one thing to decide: the free tier
+### ✅ Decided: the free tier
 
-There's a conflict to resolve:
-- The **free-allowance strategy** we discussed = **1 free upload, then upgrade** → costs ~$0.15 per free user, *once*.
-- The **pricing table** says Free = **4 video tokens per month** → costs ~$0.60 per active free user, *every month*.
+Two options were on the table:
+- A **one-time free allowance** (1 upload, then upgrade) → ~$0.15 per free user, *once*.
+- A **recurring monthly allowance** → cost repeats every month per active free user.
 
-At 10,000 free users, that's **~$1,350 one-time** vs **~$5,400/month recurring.** Both are affordable relative to revenue, and free users *do* generate the data the raise needs — but this should be a conscious choice.
+**Client decision: 3 video tokens per month, recurring.** That is ~$0.45 per *active* free user per month (≈$4,500/mo at 10,000 monthly-active free users, worst case at full utilisation — real burn will be well under this since most free users don't spend every token).
 
-**My recommendation:** launch with a **one-time free allowance (1 upload = 3 watermarked variations)**, exactly as the flow describes. It fully demonstrates the product, controls burn, and still captures the data. Revisit a small recurring free allowance once conversion data exists.
+This is an **acquisition + data cost, not a leak**: every free upload feeds the training data behind the fundraise, and 3 uploads is enough for a user to judge the product without removing the reason to upgrade (HD, watermark-free downloads stay paid-only). Guard rails to keep it honest:
+- Hard monthly reset — unused free tokens do **not** roll over.
+- Per-account cost ceiling + abuse checks (email verification, one free allowance per account).
+- Track free→paid conversion from day one; if burn outpaces conversion, drop to 2 or move to one-time.
 
 ---
 
@@ -219,7 +222,8 @@ At 10,000 free users, that's **~$1,350 one-time** vs **~$5,400/month recurring.*
 - [ ] Enterprise opt-out language (later)
 
 ### Decisions still open
-- [ ] **Free tier:** one-time 1-upload (recommended) vs 4 tokens/month recurring — see §6
+- [x] ~~**Free tier:** one-time vs recurring~~ — **decided: 3 tokens/month, recurring** (see §6)
+- [ ] **Public showcase:** confirm the activation threshold (~50–100 published micro-ads) + that consent is opt-in, default OFF
 - [ ] **Storage:** Cloudflare R2 (recommended) vs AWS S3
 - [ ] Confirm **average video length** assumption (90s) — it moves the cost model
 - [ ] **Data retention:** delete source video after processing? after N days? (affects storage cost + privacy)
