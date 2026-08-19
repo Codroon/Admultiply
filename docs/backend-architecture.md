@@ -154,3 +154,77 @@ The ad-manager integration (Meta / Google) upgrades our labels from *"the user p
 ### Why this ends in defensibility
 
 Every stage deepens the same asset: **a proprietary, growing dataset of winning-ad structures, labeled first by human choices and eventually by market performance.** Features can be cloned in a quarter. The dataset cannot — a competitor starting later must acquire users at scale with a worse product to even begin collecting it, while ours improves with every upload. The moat isn't the AI. It's what the AI has seen.
+
+---
+
+## 6. The admin data contract — what the pipeline must write
+
+The admin panel (`/admin`) is built on `src/lib/admin-types.ts`. Those types are
+the **specification for these tables**, not just props for the demo screens.
+
+The rule that matters: **if a row isn't written at processing time, the admin
+screen can never reconstruct it afterwards.** Cost per video, strategy
+win-rates and the token audit trail are all unrecoverable if the write is
+skipped — there is no backfill.
+
+### Tables
+
+| Table | Written by | Purpose |
+|---|---|---|
+| `users` | Auth callback + Stripe webhook | Platform state alongside Supabase Auth identity |
+| `jobs` | API on submit, workers on transition | The pipeline state machine |
+| `job_stages` | Each Celery task | Timeline + per-stage durations |
+| `variations` | Render worker; `downloaded_at` by the download endpoint | Output + **the flywheel signal** |
+| `token_ledger` | **Append-only** — API, workers, admin actions | Balance, refunds, audit trail |
+| `api_usage` | After every provider call | Cost per video, per provider, per user |
+
+### Two decisions that are load-bearing
+
+**1. `token_ledger` is append-only. A balance is never a stored column.**
+
+```sql
+-- balance for the current cycle
+select coalesce(sum(delta), 0)
+from token_ledger
+where user_id = $1 and created_at >= $2;
+```
+
+Every grant, reservation, refund and admin adjustment is a row with a `reason`
+and, for admin actions, an `admin_id` and a `note`. This means the audit log
+required for "Adjust Tokens" is not a feature we build — it is a consequence of
+modelling tokens correctly. A mutable `tokens` integer would need a parallel
+audit table that can silently disagree with it.
+
+**2. `api_usage` is written per job, per provider, immediately after the call.**
+
+Every provider response already returns its usage (minutes indexed, audio
+minutes, token counts). Persist it with the job id attached. Without this row
+there is no cost-per-video, no per-user profitability, no early warning when
+margin drifts — and no way to recover it later, because the provider invoice
+arrives as one monthly total with no job attribution.
+
+### Write-side checklist for backend week
+
+- [ ] On submit: create `jobs` row (`stage='queued'`) **and** a `token_ledger`
+      row (`delta=-1`, `reason='job_reserve'`, `job_id` set) in one transaction
+- [ ] On every stage transition: update `jobs.stage` + insert `job_stages`
+- [ ] After each provider call: insert `api_usage` (provider, units, cost_cents, job_id)
+- [ ] On failure: set `error_code` (closed set — see `JobErrorCode`) and
+      `error_message`, then insert `token_ledger` (`delta=+1`,
+      `reason='job_refund'`). **A failed job that doesn't refund is a revenue
+      bug** — the Overview alerts on it
+- [ ] On render complete: insert three `variations` rows
+- [ ] On download: set `variations.downloaded_at` + increment `download_count`,
+      and emit the PostHog event. **This is the moat — never skip it**
+- [ ] Monthly cron: insert `token_ledger` (`delta=plan.tokens`,
+      `reason='monthly_grant'`). No rollover
+- [ ] Admin mutations: always `admin_id` + `note`, never a direct balance write
+
+### What the panel deliberately does not store
+
+Payments, invoices, refunds and disputes stay in **Stripe** — the panel holds
+only `stripe_customer_id` and deep-links out. Behavioural funnels and retention
+stay in **PostHog**. Unhandled exceptions go to **Sentry**; `jobs.error_code`
+covers only *expected*, classified failures. Queue internals live in **Flower**;
+the panel reads depth and worker count from Celery's inspect API for the
+at-a-glance number.

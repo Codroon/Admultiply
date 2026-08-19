@@ -16,6 +16,7 @@ AI video repurposing platform: upload **one winning video ad** (60–120s) and A
 | **Landing page** | Built and parked at `/preview` (noindex) until launch. Hero with animated 1→3 mockup, How It Works, pricing (6 plans), FAQ, testimonials. |
 | **Auth pages** (`/login`, `/signup`) | UI complete (Notion-style, email-first). **Not wired to Supabase Auth yet.** |
 | **User dashboard** (`/dashboard`, noindex) | Clickable demo on a **mocked data layer** that mirrors the real backend contract. Workspace (greeting hero, showcase marquee, upload with real file metadata), simulated pipeline (4-stage stepper with live narration, progressive 3-slot reveal), results (watermark preview vs tier-gated HD downloads → contextual upgrade modal), library grouped by source ad, billing (6-plan grid + usage meter), settings (incl. demo-only plan switcher). |
+| **Admin dashboard** (`/admin`, noindex) | Six screens on the same mocked-contract pattern: **Overview** (pulse, conditional alerts, 14-day throughput, system health, queue), **Users** (search/filter, drawer with append-only token ledger + audit-trailed adjustments, suspend), **Jobs** (pipeline triage — stage timeline, classified errors, retry, token refund), **AI Usage & Cost** (spend per provider, cost-per-video vs the $0.15 baseline, token movement, free-tier burn, **flywheel win-rates**), **Billing** (MRR/ARPU/conversion + Stripe deep-links, no rebuilt ledger), **Waitlist** (live Supabase data + CSV export). ⌘K command palette. Sample data is deterministic and fully reconciled — every figure derives from generated rows. |
 | **Domain & deploy** | `admultiply.io` via GoDaddy DNS → Vercel. GitHub → Vercel auto-deploy on merge to `main`. |
 | **Design system** | Brand tokens (orange scale, Inter, light/dark), ui primitives in `src/components/ui/`, shared plan data in `src/lib/plans.ts`. |
 
@@ -23,8 +24,8 @@ AI video repurposing platform: upload **one winning video ad** (60–120s) and A
 
 1. **Pipeline spike** — validate clip quality + real cost on 10 videos (TwelveLabs → Whisper → GPT-4o Mini EDLs → FFmpeg). *The critical path.*
 2. **Backend** — FastAPI + Celery/Redis (two queues), DB-backed job state machine, presigned direct-to-R2 uploads, watermark burned at render.
-3. **Auth** — wire `/login`, `/signup` to Supabase Auth; protect `/dashboard`.
-4. **Real data** — swap the dashboard's mocked provider for Supabase/FastAPI + Realtime job status.
+3. **Auth** — wire `/login`, `/signup` to Supabase Auth; protect `/dashboard`, and gate `/admin` on `users.role = 'admin'`.
+4. **Real data** — swap the mocked providers (`dashboard-provider.tsx`, `admin-provider.tsx`) for Supabase/FastAPI + Realtime job status. The admin write-side contract is specified in [`docs/backend-architecture.md` §6](docs/backend-architecture.md) — `src/lib/admin-types.ts` is the schema.
 5. **Billing** — Stripe subscriptions, token ledger (1 token = 1 upload = 3 variations; downloads gated by tier, never tokens), Customer Portal.
 6. **Analytics** — PostHog (behaviour/funnels) + Metabase on Postgres (investor dashboards) + event capture for the data flywheel.
 7. **Admin basics** — user/job overview, dead-letter queue view.
@@ -64,7 +65,8 @@ Without these, waitlist submissions are accepted in dev but not stored (see `src
 |---|---|
 | `/` | Waitlist funnel (pre-launch homepage) |
 | `/preview` | Full landing page, noindex, for internal/client review |
-| `/dashboard` (+ `/library`, `/billing`, `/settings`) | Dashboard demo, noindex, mocked data |
+| `/dashboard` (+ `/library`, `/billing`, `/settings`) | Customer dashboard demo, noindex, mocked data |
+| `/admin` (+ `/users`, `/jobs`, `/ai-usage`, `/billing`, `/waitlist`) | Admin panel demo, noindex, mocked data |
 | `/login`, `/signup` | Auth UI (not yet functional) |
 | `/api/waitlist` | POST (capture) / PATCH (survey enrichment) → Supabase |
 
