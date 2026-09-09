@@ -47,3 +47,9 @@ spike/output/
 spike/cache/
 __pycache__/
 *.pyc
+
+# client-supplied source material - never commit
+*.mp4
+*.mov
+*.avi
+!public/**/*.mp4
