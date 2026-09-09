@@ -1,133 +1,159 @@
-# Pipeline spike
+# Pipeline spike — complete
 
 De-risking the one genuinely unknown part of AdMultiply: **can we turn one
 60–120s ad into three vertical micro-ads a marketer would actually run?**
 
-Auth, billing and queues are known problems. This isn't. So it gets built and
-tested first, standalone — no FastAPI, no Celery, no database.
+**Answer: yes.** Validated on a real client ad. Auth, billing and queues are
+known problems; this wasn't, so it was built and tested first — standalone, no
+FastAPI, no Celery, no database.
 
 ```
 video.mp4
-   ↓  ffprobe        duration, resolution, codec, audio          OK step 1
-   ↓  bar detection  strip baked-in letterbox/pillarbox          OK step 1
-   ↓  TwelveLabs     visual analysis → framing, text, moments    OK step 2
-   ↓  Whisper-1      transcript with word-level timestamps       OK step 3
-   ↓  GPT-4o Mini    edit plan (EDL)                             OK step 4
-   ↓  FFmpeg         cut, reframe 9:16, caption, encode          OK step 1
-3 clips + cost report
+   ↓  ffprobe        duration, resolution, codec, audio           step 1
+   ↓  bar detection  strip baked-in letterbox/pillarbox           step 1
+   ↓  TwelveLabs     what is SEEN: framing, on-screen text, moments  step 2
+   ↓  Whisper-1      what is SAID: transcript + word timings      step 3
+   ↓  beat splitting our code: cut the script into clauses        step 3
+   ↓  GPT-4o Mini    picks which beats to keep, by number         step 4
+   ↓  FFmpeg         cut, reframe 9:16, fade, encode              step 1
+3 clips + report.json
 ```
+
+The AI never touches the video file. It reads text and returns numbers;
+FFmpeg does all the video work. That's why it costs cents and takes under a
+minute.
 
 ## Setup
 
 ```bash
-winget install Gyan.FFmpeg        # ffmpeg 9.x; restart the terminal after
-python --version                  # 3.11+
+winget install Gyan.FFmpeg     # ffmpeg 9.x
+python --version               # 3.11+
 ```
 
-No Python dependencies for step 1 — standard library only.
+No Python dependencies — standard library only, so this stays clone-and-run.
+Keys live in `.env.local` at the repo root (gitignored):
+
+```
+OPENAI_API_KEY=...
+TWELVELABS_API_KEY=...
+```
 
 ## Running
 
 ```bash
-python spike/run_render.py <video>                    # placeholder EDL
-python spike/run_render.py <video> --fit both         # compare reframing
-python spike/run_render.py <video> --watermark        # free-tier preview
-python spike/run_render.py <video> --edl plan.json    # a real edit plan
+python spike/run_pipeline.py <video>                  # full pipeline
+python spike/run_pipeline.py <video> --watermark      # free-tier preview
+python spike/run_pipeline.py <video> --visual off     # skip TwelveLabs
+python spike/run_pipeline.py <video> --replan         # new plan, cached inputs
+python spike/run_render.py   <video> --fit both       # render only, no AI
 ```
 
-Output lands in `spike/output/`.
+Output and `report.json` land in `spike/output/`.
 
 ## Files
 
 | File | Role |
 |---|---|
+| `edl.py` | **The contract** — what the AI must produce, and its validation |
 | `ffmpeg_tools.py` | Binary discovery, probing, letterbox detection |
-| `edl.py` | **The EDL contract** — schema, validation, source→output time remap |
-| `render.py` | Filter graph, ASS captions, encode |
-| `run_render.py` | Step 1 entry point |
+| `analyze.py` | Step 2 — TwelveLabs visual analysis |
+| `transcribe.py` | Step 3 — Whisper + beat reconstruction |
+| `plan.py` | Step 4 — the edit plan, and **the prompts** |
+| `render.py` | Filter graph, ASS captions, fades, encode |
+| `net.py` | Dependency-free HTTP with retries |
+| `config.py` | Env loading and the fingerprint cache |
 
-`edl.py` is the important one. It's the interface between the model and the
-renderer, and it's what step 4 has to satisfy.
+## Measured results
 
----
+On a 55s client ad (collagen supplement, talking head, already 9:16):
 
-## Step 1 results
+| Stage | Cost | Time |
+|---|---:|---:|
+| TwelveLabs analysis | $0.0650 | 76s |
+| Whisper transcription | $0.0055 | 6s |
+| GPT-4o Mini planning (×3) | $0.0006 | 6s |
+| FFmpeg render (×3) | ~$0.0030 | 40s |
+| **Total** | **~$0.074** | **~2 min** |
 
-Render path works end to end. Verified on real footage, not synthetic input.
+Extrapolated to a 90s video: **~$0.12 against the $0.15 modelled.** TwelveLabs
+is 88% of it, exactly as the cost model predicted. Every plan margin holds.
 
-**Output is correct:** 1080×1920, 30fps, yuv420p, AAC 128k, `+faststart`.
-Captions and watermark burn in cleanly and are legible at phone size.
+Output: 1080×1920, 30fps, yuv420p, AAC 128k, `+faststart`.
 
-**Speed: 0.33–0.6× realtime.** A 15s clip renders in 5–9s on this laptop, so
-three variations land in well under a minute. Comfortably inside the ~3 minute
-per-video budget, and that's before a proper worker box.
+## The bar, and whether we met it
 
-### Three findings that change the plan
+Agreed before looking at any output, so we couldn't rationalise a bad result:
 
-**1. Real creative is full of baked-in bars — and you can't always strip them.**
+- ✅ **At least 1 of 3 runnable without editing** — client confirmed
+- ✅ No mid-word cuts, no cropped faces, captions in sync
+- ✅ Under ~3 minutes per video
+- ✅ Under ~$0.20 measured
 
-One test source was a 9:16 video exported inside a 1280×720 landscape box.
-Reframing without stripping the bars first gives you a tiny picture nested in
-black nested in a blurred backdrop. `detect_content_crop()` handles the normal
-case, but that particular file had a name card, burned-in captions and a HeyGen
-logo composited *onto* the black bars, so detection correctly refused to crop
-them away — they're real pixels.
+## What we learned that changes the plan
 
-Detection is deliberately conservative (union across five sample points) so it
-never eats real content. Sources with graphics in the bars stay imperfect.
+**1. Real creative is full of baked-in bars.** One test source was a 9:16 video
+exported inside a 1280×720 landscape box. Reframing without stripping the bars
+nests a tiny picture in black inside a blurred backdrop. `detect_content_crop()`
+handles it, unioned across five sample points so it never eats real content —
+and it correctly refuses on sources that composite name cards or logos onto the
+bars, because those are real pixels.
 
-**2. Crop vs blur cannot be one global setting.**
+**2. Crop vs blur cannot be one global setting.** Talking heads want crop;
+screen recordings and text-heavy ads are destroyed by it. TwelveLabs makes this
+call per video now, which is most of what justifies its cost.
 
-- Talking head, subject centred → **crop wins.** Full-bleed and punchy.
-- Screen recording or text-heavy ad → **crop is unusable.** It guillotines text
-  on both edges. Blur-pad is mandatory.
+**3. Most ad creative already carries burned-in captions.** Ours stacked a
+near-duplicate underneath and looked amateurish. TwelveLabs detects it, so
+`--captions auto` decides per video.
 
-This has to be decided per video. Conveniently, TwelveLabs' scene analysis in
-step 2 already describes the content well enough to make that call — so the
-choice becomes part of the edit plan rather than a config flag.
+**4. Cutting on word boundaries is not enough.** It stops you slicing a word in
+half but not a sentence. The first clips felt torn because a cut at 6.3s–14.2s
+started mid-sentence and ended mid-sentence. Fixed by removing the model's
+ability to emit timestamps at all — it picks numbered beats instead.
 
-**3. Sources often already have burned-in captions.** Ours then collide with
-theirs, and crop slices theirs in half. Step 4 needs to detect existing on-screen
-text and either skip our captions or reposition them.
+**5. Sentences alone are too coarse.** Real ad copy runs 9–13s sentences, so
+"pick two" can only produce 20–25s, and the punchy 4s hook buried in a
+sentence's final clause is unreachable. Splitting on clauses gave 13 choices
+instead of 6, and the model immediately found the hook.
 
-### Design decisions worth keeping
+**6. Three things make a clip feel finished** rather than extracted: padding
+into the silence either side, short audio fades at every splice, and a fade in
+and out. The audio fades matter most — the ear hears a hard join before the eye
+sees one.
 
-- **One ffmpeg invocation per variation.** trim → concat → debar → reframe →
-  caption → encode, as a single `filter_complex`. No intermediate files, no
-  double encode.
-- **All EDL times are source time.** The model reasons about a transcript in
-  source time; making it do output-time arithmetic is just another chance to be
-  wrong. `remap_captions()` handles the conversion.
-- **Validation returns strings, not exceptions.** In step 4 those go straight
-  back to the model for one retry — far cheaper than a failed render.
-- **Text goes through ASS, not `drawtext`.** libass handles font fallback and
-  outlines properly and dodges `drawtext`'s fontconfig dependency, a common
-  Windows failure. The watermark rides the same path.
+## Two model-wrangling findings
 
----
+Both cost a round of debugging and both will recur in production.
 
-## Next: steps 2–4
+**Strict JSON schema cannot enforce array length.** There is no `minItems`.
+Asked for "an array of exactly three variations", gpt-4o-mini reliably returned
+one, and repair rounds saying so did not fix it. Naming three required fields
+makes the correct shape the only representable shape.
 
-Blocked on two keys:
+**A small model cannot hold a global constraint across simultaneous outputs.**
+Asked for three variations that must not overlap, it kept opening two on the
+strongest beat — even when the error named the offender. Generating one per
+call, each told which openings are taken, removes the need to hold the
+constraint. Same cost, succeeds first try.
 
-- **TwelveLabs** — free tier, 600 minutes, no card required. ~400 ads' worth.
-- **OpenAI** — the account is funded; we need the key itself.
+## The open question for production
 
-When they land, the one non-obvious thing to build is **caching keyed by file
-hash**. We'll iterate on the prompt twenty-plus times to get the clips good; if
-each pass re-indexes the video we burn the free minutes in an afternoon and
-learn nothing. Index once, cache to disk, then iterate against the part that
-costs a fraction of a cent.
+TwelveLabs is 88% of per-video cost. On this talking-head ad it barely changed
+which beats were picked — its value was the framing decision and detecting
+on-screen text.
 
-That also validates the production "analyse once, reuse" decision the cost model
-depends on — TwelveLabs re-bills full video minutes on every call, so it's a 2×
-cost swing.
+That points at running it **selectively** rather than universally: landscape
+sources, where the framing call matters, and sources with sparse speech, where
+there is nothing to cut on. If half of uploads can skip it, average cost drops
+from ~$0.12 to ~$0.07 per video and every margin improves.
 
-## The bar
+Worth measuring on a montage-style ad with little dialogue before deciding.
 
-Agreed before looking at output, so we can't rationalise a bad result:
+## Carrying this into the backend
 
-- **At least 1 of the 3 is runnable without editing.** Not three. One.
-- No cuts mid-word, no cropped-off faces, captions in sync.
-- Under ~3 minutes per video. *(Render alone: comfortably met.)*
-- Under ~$0.20 measured, against a $0.15 estimate.
+- `edl.py` is the contract the Celery render task consumes unchanged.
+- The fingerprint cache becomes the `analyse-once-reuse` rule the cost model
+  depends on — TwelveLabs re-bills full video minutes on every call.
+- Every API response carries usage; those become the `api_usage` rows the admin
+  panel needs (see `docs/backend-architecture.md` §6). If they aren't written at
+  pipeline time, cost-per-video is unrecoverable.
