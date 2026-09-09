@@ -87,8 +87,10 @@ def main() -> int:
         print(f"  failed: {e.message}", file=sys.stderr)
         return 1
     tag = "cached (free)" if t.cached else f"{t.seconds_taken:.1f}s, ${t.cost_usd:.5f}"
-    print(f"  {len(t.words)} words, {t.language}  -  {tag}")
-    print(f"  \"{t.text[:110].strip()}...\"")
+    print(f"  {len(t.words)} words, {len(t.beats)} beats, {t.language}  -  {tag}")
+    for i, b in enumerate(t.beats):
+        mark = "" if b.ends_sentence else " ~"
+        print(f"    {i:2}.{mark} [{b.end - b.start:4.1f}s] {b.text[:72]}")
 
     # ----------------------------------------------------------------- plan
     print("\n" + "=" * 66)
@@ -120,8 +122,11 @@ def main() -> int:
     for v, r in zip(p.edl.variations, p.reasoning["variations"]):
         print(f"  {v.strategy}  ({v.output_duration:.1f}s, reframe={r['reframe']})")
         print(f"    hook: \"{r['hook']}\"")
-        for seg, why in zip(sorted(v.segments, key=lambda s: s.start), r["segments"]):
-            print(f"    {seg.start:6.1f}-{seg.end:5.1f}s  {why['why']}")
+        for pick in r["picks"]:
+            print(
+                f"    beat {pick['beats']:<5} "
+                f"{pick['start']:6.1f}-{pick['end']:5.1f}s  {pick['why']}"
+            )
         print()
 
     # --------------------------------------------------------------- render

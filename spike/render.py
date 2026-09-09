@@ -22,6 +22,12 @@ TARGET_W = 1080
 TARGET_H = 1920
 TARGET_FPS = 30
 
+# Fade lengths, in seconds. Short enough to be invisible, long enough that the
+# join stops registering as a cut.
+SPLICE_FADE = 0.09      # either side of every internal audio join
+EDGE_FADE = 0.20        # video fade at the very start and end
+EDGE_FADE_AUDIO = 0.28  # audio settles a touch slower than picture
+
 # "crop" fills the frame and loses the sides; "blur" keeps the whole frame over
 # a blurred backdrop. Which one wins is an open question we settle on real
 # footage — subject-aware cropping is explicitly out of MVP scope.
@@ -147,12 +153,21 @@ def build_filtergraph(
         # Clamp defensively: a model off by a few frames shouldn't fail a render.
         start = max(0.0, seg.start)
         end = min(source.duration, seg.end)
+        dur = max(0.05, end - start)
         parts.append(
             f"[0:v]trim=start={start:.3f}:end={end:.3f},setpts=PTS-STARTPTS[v{i}]"
         )
         if source.has_audio:
+            # Splice fades. Stitching two moments from different parts of a
+            # video jumps room tone, breath and level in a single frame, and
+            # the ear reads that as "cut" well before the eye does. A short
+            # fade either side of every join removes it without changing
+            # duration, which a crossfade would.
+            fade = min(SPLICE_FADE, dur / 3)
             parts.append(
-                f"[0:a]atrim=start={start:.3f}:end={end:.3f},asetpts=PTS-STARTPTS[a{i}]"
+                f"[0:a]atrim=start={start:.3f}:end={end:.3f},asetpts=PTS-STARTPTS,"
+                f"afade=t=in:st=0:d={fade:.3f},"
+                f"afade=t=out:st={max(0.0, dur - fade):.3f}:d={fade:.3f}[a{i}]"
             )
         labels.append(f"[v{i}]" + (f"[a{i}]" if source.has_audio else ""))
 
@@ -175,9 +190,28 @@ def build_filtergraph(
     if ass_name:
         # Run with cwd set to the output directory so this is a bare filename —
         # Windows absolute paths need painful escaping inside a filter string.
-        parts.append(f"[vfit]subtitles={ass_name}[vout]")
+        parts.append(f"[vfit]subtitles={ass_name}[vsub]")
+        last_v = "[vsub]"
     else:
-        parts.append("[vfit]null[vout]")
+        last_v = "[vfit]"
+
+    # Top and tail. Slamming in at full brightness and volume and stopping dead
+    # is most of what separates "a clip someone extracted" from "an ad someone
+    # made". Cheap, and it does more for perceived quality than anything else
+    # in this filter graph.
+    total = sum(max(0.0, min(source.duration, s.end) - max(0.0, s.start)) for s in segments)
+    v_out_start = max(0.0, total - EDGE_FADE)
+    parts.append(
+        f"{last_v}fade=t=in:st=0:d={EDGE_FADE:.3f},"
+        f"fade=t=out:st={v_out_start:.3f}:d={EDGE_FADE:.3f}[vout]"
+    )
+
+    if source.has_audio:
+        a_out_start = max(0.0, total - EDGE_FADE_AUDIO)
+        parts.append(
+            f"[acat]afade=t=in:st=0:d={EDGE_FADE_AUDIO:.3f},"
+            f"afade=t=out:st={a_out_start:.3f}:d={EDGE_FADE_AUDIO:.3f}[aout]"
+        )
 
     return ";".join(parts)
 
@@ -227,7 +261,7 @@ def render_variation(
         "-map", "[vout]",
     ]
     if source.has_audio:
-        args += ["-map", "[acat]", "-c:a", "aac", "-b:a", "128k", "-ar", "48000"]
+        args += ["-map", "[aout]", "-c:a", "aac", "-b:a", "128k", "-ar", "48000"]
     else:
         args += ["-an"]
     args += [

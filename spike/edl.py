@@ -26,8 +26,8 @@ from pathlib import Path
 # A micro-ad that runs long stops being a micro-ad. These are the guard rails
 # the model's output is held to.
 MIN_OUTPUT_SECONDS = 8.0
-MAX_OUTPUT_SECONDS = 35.0
-IDEAL_RANGE = (12.0, 25.0)
+MAX_OUTPUT_SECONDS = 26.0
+IDEAL_RANGE = (12.0, 22.0)
 
 # Cutting a segment shorter than this produces a flash frame, not a shot.
 MIN_SEGMENT_SECONDS = 0.6
