@@ -18,6 +18,7 @@ import json
 import sys
 from pathlib import Path
 
+from analyze import analyze
 from config import CACHE_DIR, load_env, require
 from edl import validate, warnings
 from ffmpeg_tools import FFmpegMissing, detect_content_crop, fmt_duration, probe
@@ -49,9 +50,18 @@ def main() -> int:
     # until step 2, where TwelveLabs' scene analysis can detect on-screen text
     # and make this call per video.
     ap.add_argument(
-        "--captions",
+        "--visual",
         choices=["on", "off"],
-        default="off",
+        default="on",
+        help="TwelveLabs scene analysis (~90%% of per-video cost)",
+    )
+    ap.add_argument(
+        "--reanalyze", action="store_true", help="re-run TwelveLabs analysis"
+    )
+    ap.add_argument(
+        "--captions",
+        choices=["auto", "on", "off"],
+        default="auto",
         help="burn our own captions (default off: sources usually have their own)",
     )
     args = ap.parse_args()
@@ -77,6 +87,25 @@ def main() -> int:
     content_crop = crop if crop and crop.is_significant(source) else None
     print(f"  bars: {content_crop.describe(source) if content_crop else 'none detected'}")
 
+    # -------------------------------------------------------------- visual
+    vis = None
+    if args.visual == "on" and env.get("TWELVELABS_API_KEY"):
+        print("\n" + "=" * 66)
+        print("STEP 2  VISUAL ANALYSIS  (TwelveLabs Pegasus)")
+        print("=" * 66)
+        try:
+            vis = analyze(source, env["TWELVELABS_API_KEY"], force=args.reanalyze)
+        except (ApiError, RuntimeError, TimeoutError) as e:
+            print(f"  skipped: {e}")
+            vis = None
+        if vis:
+            tag = "cached (free)" if vis.cached else f"{vis.seconds_taken:.0f}s, ${vis.cost_usd:.4f}"
+            print(f"  {tag}")
+            print(f"  on-screen text: {vis.on_screen_text}   framing: {vis.framing}")
+            for line in vis.raw.splitlines():
+                if line.strip().startswith("-"):
+                    print(f"  {line.strip()}")
+
     # ----------------------------------------------------------- transcribe
     print("\n" + "=" * 66)
     print("STEP 3  TRANSCRIBE  (whisper-1, word-level timestamps)")
@@ -97,7 +126,11 @@ def main() -> int:
     print("STEP 4  EDIT PLAN  (gpt-4o-mini, structured output)")
     print("=" * 66)
     try:
-        p = make_plan(source, t, openai_key, force=args.replan)
+        p = make_plan(
+            source, t, openai_key,
+            force=args.replan,
+            visual=vis.for_prompt() if vis else "",
+        )
     except ApiError as e:
         print(f"  failed: {e.message}", file=sys.stderr)
         return 1
@@ -133,8 +166,17 @@ def main() -> int:
     print("=" * 66)
     print("STEP 1  RENDER")
     print("=" * 66)
-    if args.captions == "off":
-        print("  captions: off (source likely has its own; --captions on to add ours)")
+    want_captions = args.captions == "on"
+    if args.captions == "auto":
+        # If the source already carries burned-in captions, ours stack a
+        # near-duplicate underneath. TwelveLabs can see that; without it we
+        # assume it does, since most real ad creative is captioned.
+        has_own = vis.on_screen_text if vis and vis.on_screen_text is not None else True
+        want_captions = not has_own
+        why = "source has its own" if has_own else "source has none"
+        source_of_truth = "detected" if vis and vis.on_screen_text is not None else "assumed"
+        print(f"  captions: {'on' if want_captions else 'off'} ({why}, {source_of_truth})")
+    if not want_captions:
         for v in p.edl.variations:
             v.captions = []
 
@@ -157,16 +199,17 @@ def main() -> int:
         print(f"{fmt_duration(res.duration)}  {res.size_mb:>5.1f} MB  {res.seconds_taken:>5.1f}s")
 
     # --------------------------------------------------------------- report
-    ai_cost = t.cost_usd + p.cost_usd
+    ai_cost = t.cost_usd + p.cost_usd + (vis.cost_usd if vis else 0.0)
     render_s = sum(r.seconds_taken for r in results)
-    wall = (t.seconds_taken + p.seconds_taken + render_s)
+    wall = (t.seconds_taken + p.seconds_taken + render_s + (vis.seconds_taken if vis else 0.0))
 
     print("\n" + "=" * 66)
     print("COST  (measured, this run)")
     print("=" * 66)
     print(f"  whisper-1 transcription   ${t.cost_usd:.5f}{'  (cached)' if t.cached else ''}")
     print(f"  gpt-4o-mini edit plan     ${p.cost_usd:.5f}{'  (cached)' if p.cached else ''}")
-    print(f"  TwelveLabs analysis       $0.00000  (step 2, not yet wired)")
+    tl = vis.cost_usd if vis else 0.0
+    print(f"  TwelveLabs analysis       ${tl:.5f}{'  (cached)' if vis and vis.cached else '' if vis else '  (skipped)'}")
     print(f"  ffmpeg render             ~$0.00300  (compute, estimated)")
     print(f"  {'-' * 44}")
     print(f"  measured so far           ${ai_cost + 0.003:.5f} per video")

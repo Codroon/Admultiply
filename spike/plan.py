@@ -28,7 +28,7 @@ from net import post_json
 from transcribe import Transcript
 
 MODEL = "gpt-4o-mini"
-CACHE_VARIANT = f"{MODEL}-v3"  # v3 = clause-level beat selection
+CACHE_VARIANT = f"{MODEL}-v4"  # v4 = beats + visual analysis
 PRICE_IN = 0.15 / 1_000_000
 PRICE_OUT = 0.60 / 1_000_000
 
@@ -196,13 +196,22 @@ def _user_prompt(
     strategy: str,
     taken: dict[int, str],
     repair: str = "",
+    visual: str = "",
 ) -> str:
+    seen = ""
+    if visual:
+        seen = (
+            f"\n\nWhat is visible on screen (from video analysis):\n\n{visual}\n\n"
+            "Favour beats whose visuals are strong, and let this decide the "
+            "reframe mode."
+        )
+
     base = f"""Source ad: {source.path.name}
 Length: {source.duration:.1f} seconds
 
 Beats you may choose from (a beat is a clause or a sentence):
 
-{_beat_menu(transcript)}
+{_beat_menu(transcript)}{seen}
 
 Build ONE variation using the "{strategy}" strategy."""
 
@@ -327,11 +336,13 @@ def make_plan(
     api_key: str,
     *,
     force: bool = False,
+    visual: str = "",
 ) -> PlanResult:
     fingerprint = file_fingerprint(source.path)
 
     if not force:
-        cached = cache_read(fingerprint, "plan", CACHE_VARIANT)
+        cache_key = CACHE_VARIANT + ("-v" if visual else "")
+        cached = cache_read(fingerprint, "plan", cache_key)
         if cached:
             edl, reasoning = _to_edl(cached["raw"], source, transcript)
             return PlanResult(
@@ -375,7 +386,7 @@ def make_plan(
                         {
                             "role": "user",
                             "content": _user_prompt(
-                                source, transcript, strategy, taken, repair
+                                source, transcript, strategy, taken, repair, visual
                             ),
                         },
                     ],
@@ -419,7 +430,7 @@ def make_plan(
         fingerprint,
         "plan",
         {"raw": raw, "tokens_in": tin, "tokens_out": tout, "repaired": repaired},
-        CACHE_VARIANT,
+        CACHE_VARIANT + ("-v" if visual else ""),
     )
 
     edl, reasoning = _to_edl(raw, source, transcript)

@@ -8,12 +8,12 @@ tested first, standalone — no FastAPI, no Celery, no database.
 
 ```
 video.mp4
-   ↓  ffprobe        duration, resolution, codec, audio          ✅ step 1
-   ↓  bar detection  strip baked-in letterbox/pillarbox          ✅ step 1
-   ↓  TwelveLabs     index + analyse → scenes, hooks             ⬜ step 2
-   ↓  Whisper-1      transcript with word-level timestamps       ⬜ step 3
-   ↓  GPT-4o Mini    edit plan (EDL)                             ⬜ step 4
-   ↓  FFmpeg         cut, reframe 9:16, caption, encode          ✅ step 1
+   ↓  ffprobe        duration, resolution, codec, audio          OK step 1
+   ↓  bar detection  strip baked-in letterbox/pillarbox          OK step 1
+   ↓  TwelveLabs     visual analysis → framing, text, moments    OK step 2
+   ↓  Whisper-1      transcript with word-level timestamps       OK step 3
+   ↓  GPT-4o Mini    edit plan (EDL)                             OK step 4
+   ↓  FFmpeg         cut, reframe 9:16, caption, encode          OK step 1
 3 clips + cost report
 ```
 
