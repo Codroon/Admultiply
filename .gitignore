@@ -41,3 +41,9 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# pipeline spike
+spike/output/
+spike/cache/
+__pycache__/
+*.pyc
