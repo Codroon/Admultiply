@@ -43,7 +43,7 @@ next-env.d.ts
 .vercel
 
 # pipeline spike
-spike/output/
+spike/output*/
 spike/cache/
 __pycache__/
 *.pyc
