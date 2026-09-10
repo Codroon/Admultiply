@@ -1,0 +1,101 @@
+{
+  "source": "video1.mp4",
+  "duration_s": 44.57,
+  "transcription_usd": 0.0,
+  "plan_usd": 0.000712,
+  "measured_ai_usd": 0.000712,
+  "wall_clock_s": 34.1,
+  "plan": {
+    "variations": [
+      {
+        "strategy": "Hook-first",
+        "hook": "Did you know about C-Mos?",
+        "reframe": "blur",
+        "picks": [
+          {
+            "beats": "9-11",
+            "start": 22.78,
+            "end": 34.5,
+            "why": "Starts with a strong surprising fact about C-Mos, directly engaging the viewer."
+          },
+          {
+            "beats": "15-18",
+            "start": 34.5,
+            "end": 38.5,
+            "why": "Includes a clear product shot while transitioning from the hook."
+          }
+        ],
+        "bridged": 0,
+        "grown_s": 0.0,
+        "cuts": 0
+      },
+      {
+        "strategy": "Problem → Solution",
+        "hook": "Collagen production declines after 30!",
+        "reframe": "blur",
+        "picks": [
+          {
+            "beats": "4-5",
+            "start": 7.4,
+            "end": 12.56,
+            "why": "Addresses the problem of decreasing collagen production."
+          },
+          {
+            "beats": "7-8",
+            "start": 13.9,
+            "end": 22.82,
+            "why": "Introduces the solution with the product and its benefits."
+          }
+        ],
+        "bridged": 1,
+        "grown_s": 0.0,
+        "cuts": 0
+      },
+      {
+        "strategy": "Social proof",
+        "hook": "Top wellness change I've made",
+        "reframe": "crop",
+        "picks": [
+          {
+            "beats": "7-8",
+            "start": 13.9,
+            "end": 22.82,
+            "why": "Introduces the product as a solution with immediate benefits."
+          },
+          {
+            "beats": "11-12",
+            "start": 29.8,
+            "end": 38.5,
+            "why": "Ends on product benefits and a strong recommendation."
+          }
+        ],
+        "bridged": 0,
+        "grown_s": 0.0,
+        "cuts": 1
+      }
+    ]
+  },
+  "clips": [
+    {
+      "id": "hook-first",
+      "strategy": "Hook-first",
+      "file": "video1__hook-first__blur.mp4",
+      "duration_s": 15.72,
+      "size_mb": 11.12
+    },
+    {
+      "id": "problem-solution",
+      "strategy": "Problem → Solution",
+      "file": "video1__problem-solution__blur.mp4",
+      "duration_s": 15.42,
+      "size_mb": 9.11
+    },
+    {
+      "id": "social-proof",
+      "strategy": "Social proof",
+      "file": "video1__social-proof__crop.mp4",
+      "duration_s": 17.62,
+      "size_mb": 12.27
+    }
+  ]
+}

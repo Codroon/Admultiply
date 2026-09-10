@@ -1,0 +1,107 @@
+{
+  "source": "video3.mp4",
+  "duration_s": 60.57,
+  "transcription_usd": 0.0,
+  "plan_usd": 0.000697,
+  "measured_ai_usd": 0.000697,
+  "wall_clock_s": 27.9,
+  "plan": {
+    "variations": [
+      {
+        "strategy": "Hook-first",
+        "hook": "Different hair needs different things.",
+        "reframe": "crop",
+        "picks": [
+          {
+            "beats": "12",
+            "start": 30.32,
+            "end": 32.06,
+            "why": "This statement is a compelling, universal hook."
+          },
+          {
+            "beats": "14-15",
+            "start": 34.64,
+            "end": 44.32,
+            "why": "It provides insight into the skill required, emphasizing technique."
+          },
+          {
+            "beats": "19",
+            "start": 52.64,
+            "end": 54.78,
+            "why": "Ends with a strong visual payoff, showcasing the results."
+          }
+        ],
+        "bridged": 1,
+        "grown_s": 0.0,
+        "cuts": 1
+      },
+      {
+        "strategy": "Problem → Solution",
+        "hook": "Different hair needs different things.",
+        "reframe": "crop",
+        "picks": [
+          {
+            "beats": "10-12",
+            "start": 27.02,
+            "end": 32.06,
+            "why": "Identifies the problem of not knowing how to handle different hair."
+          },
+          {
+            "beats": "18-19",
+            "start": 50.88,
+            "end": 54.78,
+            "why": "Presents the solution and showcases the results."
+          }
+        ],
+        "bridged": 0,
+        "grown_s": 0.0,
+        "cuts": 1
+      },
+      {
+        "strategy": "Social proof",
+        "hook": "Now, look at these results.",
+        "reframe": "crop",
+        "picks": [
+          {
+            "beats": "14",
+            "start": 34.64,
+            "end": 42.34,
+            "why": "Ends with a strong visual impact of the results."
+          },
+          {
+            "beats": "15-18",
+            "start": 42.22,
+            "end": 52.52,
+            "why": "Explains the importance of technique and adaptability in hairstyling."
+          }
+        ],
+        "bridged": 0,
+        "grown_s": 0.0,
+        "cuts": 0
+      }
+    ]
+  },
+  "clips": [
+    {
+      "id": "hook-first",
+      "strategy": "Hook-first",
+      "file": "video3__hook-first__crop.mp4",
+      "duration_s": 16.14,
+      "size_mb": 7.67
+    },
+    {
+      "id": "problem-solution",
+      "strategy": "Problem → Solution",
+      "file": "video3__problem-solution__crop.mp4",
+      "duration_s": 8.94,
+      "size_mb": 5.29
+    },
+    {
+      "id": "social-proof",
+      "strategy": "Social proof",
+      "file": "video3__social-proof__crop.mp4",
+      "duration_s": 17.88,
+      "size_mb": 9.79
+    }
+  ]
+}

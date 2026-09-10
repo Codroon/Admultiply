@@ -1,0 +1,107 @@
+{
+  "source": "video2.mp4",
+  "duration_s": 43.27,
+  "transcription_usd": 0.0,
+  "plan_usd": 0.00069,
+  "measured_ai_usd": 0.00069,
+  "wall_clock_s": 25.1,
+  "plan": {
+    "variations": [
+      {
+        "strategy": "Hook-first",
+        "hook": "Change your life, gang.",
+        "reframe": "blur",
+        "picks": [
+          {
+            "beats": "19",
+            "start": 27.18,
+            "end": 28.04,
+            "why": "Strong claim that grabs attention."
+          },
+          {
+            "beats": "20-23",
+            "start": 28.14,
+            "end": 31.46,
+            "why": "Follows with a clear call to action."
+          }
+        ],
+        "bridged": 0,
+        "grown_s": 4.7,
+        "cuts": 0
+      },
+      {
+        "strategy": "Problem → Solution",
+        "hook": "Change your life, gang.",
+        "reframe": "blur",
+        "picks": [
+          {
+            "beats": "1",
+            "start": 3.52,
+            "end": 5.16,
+            "why": "Identifies the problem - rejecting coffee."
+          },
+          {
+            "beats": "19",
+            "start": 27.18,
+            "end": 28.04,
+            "why": "Offers the solution - changing life."
+          },
+          {
+            "beats": "23",
+            "start": 30.54,
+            "end": 31.46,
+            "why": "Concludes with the product benefit - quarter zips up."
+          }
+        ],
+        "bridged": 1,
+        "grown_s": 2.8,
+        "cuts": 1
+      },
+      {
+        "strategy": "Social proof",
+        "hook": "You wear quarter zips now.",
+        "reframe": "crop",
+        "picks": [
+          {
+            "beats": "0-1",
+            "start": 0.06,
+            "end": 5.16,
+            "why": "Starts with a strong statement that stands out."
+          },
+          {
+            "beats": "15-23",
+            "start": 23.34,
+            "end": 31.46,
+            "why": "Shows transformation and reinforces the message with imagery of the product."
+          }
+        ],
+        "bridged": 0,
+        "grown_s": 0.0,
+        "cuts": 1
+      }
+    ]
+  },
+  "clips": [
+    {
+      "id": "hook-first",
+      "strategy": "Hook-first",
+      "file": "video2__hook-first__blur.mp4",
+      "duration_s": 8.94,
+      "size_mb": 7.05
+    },
+    {
+      "id": "problem-solution",
+      "strategy": "Problem → Solution",
+      "file": "video2__problem-solution__blur.mp4",
+      "duration_s": 8.72,
+      "size_mb": 7.03
+    },
+    {
+      "id": "social-proof",
+      "strategy": "Social proof",
+      "file": "video2__social-proof__crop.mp4",
+      "duration_s": 13.22,
+      "size_mb": 10.86
+    }
+  ]
+}

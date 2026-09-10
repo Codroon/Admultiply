@@ -1,0 +1,101 @@
+{
+  "source": "video1.mp4",
+  "duration_s": 44.57,
+  "transcription_usd": 0.0,
+  "plan_usd": 0.000618,
+  "measured_ai_usd": 0.000618,
+  "wall_clock_s": 33.5,
+  "plan": {
+    "variations": [
+      {
+        "strategy": "Hook-first",
+        "hook": "Top up your collagen deficiency!",
+        "reframe": "crop",
+        "picks": [
+          {
+            "beats": "9-11",
+            "start": 22.78,
+            "end": 34.5,
+            "why": "Starts with a strong statistic about C-Mos and ends with benefits of the product."
+          },
+          {
+            "beats": "7-8",
+            "start": 13.9,
+            "end": 22.82,
+            "why": "Introduces the product as a delicious solution for collagen deficiency."
+          }
+        ],
+        "bridged": 0,
+        "grown_s": 0.0,
+        "cuts": 0
+      },
+      {
+        "strategy": "Problem → Solution",
+        "hook": "Collagen production decreases after 30.",
+        "reframe": "blur",
+        "picks": [
+          {
+            "beats": "4-5",
+            "start": 7.4,
+            "end": 12.56,
+            "why": "Identifies the problem of collagen production decline."
+          },
+          {
+            "beats": "7-8",
+            "start": 13.9,
+            "end": 22.82,
+            "why": "Presents the solution with Numos Firm Collagen and its benefits."
+          }
+        ],
+        "bridged": 1,
+        "grown_s": 0.0,
+        "cuts": 0
+      },
+      {
+        "strategy": "Social proof",
+        "hook": "A delicious multifunction gummy!",
+        "reframe": "crop",
+        "picks": [
+          {
+            "beats": "7-8",
+            "start": 13.9,
+            "end": 22.82,
+            "why": "This introduces the product positively and quickly explains its benefits."
+          },
+          {
+            "beats": "11-12",
+            "start": 29.8,
+            "end": 38.5,
+            "why": "These beats provide additional ingredients for credibility and a strong recommendation."
+          }
+        ],
+        "bridged": 0,
+        "grown_s": 0.0,
+        "cuts": 1
+      }
+    ]
+  },
+  "clips": [
+    {
+      "id": "hook-first",
+      "strategy": "Hook-first",
+      "file": "video1__hook-first__crop.mp4",
+      "duration_s": 20.6,
+      "size_mb": 13.51
+    },
+    {
+      "id": "problem-solution",
+      "strategy": "Problem → Solution",
+      "file": "video1__problem-solution__blur.mp4",
+      "duration_s": 15.42,
+      "size_mb": 9.11
+    },
+    {
+      "id": "social-proof",
+      "strategy": "Social proof",
+      "file": "video1__social-proof__crop.mp4",
+      "duration_s": 17.62,
+      "size_mb": 12.27
+    }
+  ]
+}

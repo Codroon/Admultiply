@@ -22,7 +22,15 @@ import time
 from dataclasses import dataclass
 
 from config import cache_read, cache_write, file_fingerprint
-from edl import EDL, Caption, Segment, Variation, validate
+from edl import (
+    EDL,
+    IDEAL_RANGE,
+    MIN_OUTPUT_SECONDS,
+    Caption,
+    Segment,
+    Variation,
+    validate,
+)
 from ffmpeg_tools import SourceInfo
 from net import post_json
 from transcribe import Transcript
@@ -39,6 +47,20 @@ STRATEGIES = ["Hook-first", "Problem → Solution", "Social proof"]
 PAD_IN = 0.18
 PAD_OUT = 0.38
 MIN_GAP_KEEP = 0.06  # never eat a neighbouring sentence
+
+# If two chosen blocks sit closer together than this, bridge them into one
+# continuous run instead of cutting.
+#
+# A cut only earns its discontinuity if it skips enough material to justify it.
+# Skipping twenty seconds lands on a different shot and reads as a deliberate
+# scene change. Skipping two lands on the same person in the same pose in the
+# same room -- a jump cut, which the eye reads as a glitch rather than an edit.
+# This was exactly the regression that made the TwelveLabs version feel cut
+# again: it picked blocks 1.9s apart where the previous plan jumped 21s.
+#
+# Bridging costs a couple of seconds of runtime and removes the cut entirely.
+# That is always the better trade at this scale.
+BRIDGE_MAX_GAP = 3.0
 
 # One named field per strategy rather than an array.
 #
@@ -114,6 +136,12 @@ Rules you never break:
 - Each variation runs 12-22 seconds total. Shorter is better. Never exceed 25.
 - Use 1-3 blocks. Two is usually right. A block may span consecutive beats \
 using from_beat and to_beat when they belong together.
+- Beat durations are given to you. Add them up. If the beats are short, widen \
+your blocks with to_beat rather than adding more blocks -- a run of six short \
+beats is one block, not six. Hitting the length target matters more than \
+keeping blocks narrow.
+- List your blocks in the order they appear in the source, earliest first. \
+The clip plays them in that order.
 - A block must end on a beat that completes a sentence, so the clip never \
 stops mid-thought. Beats marked "(mid-sentence)" are fine to start on or pass \
 through, but never to end on.
@@ -122,6 +150,10 @@ statistic or question available, never a preamble or a greeting. The strongest \
 hook is often the final clause of a long sentence rather than its start.
 - The three variations must feel genuinely different. Draw them from different \
 parts of the ad. Never open two variations on the same beat.
+- Never pick two blocks that sit close together in the source. Skipping only a \
+second or two puts the same person in the same pose either side of the cut, \
+which looks like a glitch rather than an edit. Either take the material in \
+between as one block, or jump somewhere clearly different.
 - End on the product, the offer, or a line that lands. Never trail off.
 - A viewer sees only what you pick, with no other context. Each variation must \
 make complete sense standing alone.
@@ -206,12 +238,27 @@ def _user_prompt(
             "reframe mode."
         )
 
+    total_beats = len(transcript.beats)
+    mean = (
+        sum(b.end - b.start for b in transcript.beats) / total_beats
+        if total_beats
+        else 0
+    )
+    # Spelling out the arithmetic matters on ads with short, fragmented beats,
+    # where the model otherwise picks two 1-second beats and calls it a clip.
+    need = f"{IDEAL_RANGE[0]:g}-{IDEAL_RANGE[1]:g}"
+    sizing = (
+        f"\n\nThese beats average {mean:.1f}s, so reaching {need}s takes roughly "
+        f"{max(2, round(IDEAL_RANGE[0] / mean)) if mean else 6} beats in total. "
+        f"Use to_beat to span runs of them."
+    )
+
     base = f"""Source ad: {source.path.name}
 Length: {source.duration:.1f} seconds
 
 Beats you may choose from (a beat is a clause or a sentence):
 
-{_beat_menu(transcript)}{seen}
+{_beat_menu(transcript)}{sizing}{seen}
 
 Build ONE variation using the "{strategy}" strategy."""
 
@@ -247,6 +294,44 @@ def _padded_span(transcript: Transcript, i: int, j: int) -> tuple[float, float]:
     return start, max(start + 0.1, end)
 
 
+def _grow_to_minimum(
+    segments: list[Segment], transcript: Transcript
+) -> tuple[list[Segment], float]:
+    """Extend the last block forward until the clip clears the minimum length.
+
+    A deterministic backstop behind the model. On ads with short, fragmented
+    beats it kept returning 5-second clips and would not correct itself even
+    when the repair message named the number. Rather than ship something
+    unusable or fail the job, we walk the last block forward through the
+    following beats until it is long enough. The model still chooses the angle;
+    this only guarantees the result is a watchable length.
+    """
+    if not segments:
+        return segments, 0.0
+
+    total = sum(s.duration for s in segments)
+    if total >= MIN_OUTPUT_SECONDS:
+        return segments, 0.0
+
+    last = segments[-1]
+    grown_from = last.end
+
+    for beat in transcript.beats:
+        if beat.start < last.end - 0.05:
+            continue  # already covered
+        candidate_end = min(beat.end + PAD_OUT, transcript.duration)
+        if candidate_end <= last.end:
+            continue
+        segments[-1] = Segment(last.start, candidate_end)
+        last = segments[-1]
+        total = sum(s.duration for s in segments)
+        # Stop at the first beat that clears the bar and completes a thought.
+        if total >= MIN_OUTPUT_SECONDS and beat.ends_sentence:
+            break
+
+    return segments, max(0.0, segments[-1].end - grown_from)
+
+
 def _to_edl(data: dict, source: SourceInfo, transcript: Transcript) -> tuple[EDL, dict]:
     variations: list[Variation] = []
     reasoning: dict = {"variations": []}
@@ -276,15 +361,20 @@ def _to_edl(data: dict, source: SourceInfo, transcript: Transcript) -> tuple[EDL
 
         segments.sort(key=lambda s: s.start)
 
-        # Merge blocks that now touch after padding, so we don't cut and
-        # immediately rejoin the same moment.
+        # Bridge blocks that sit close together rather than cutting between
+        # them -- see BRIDGE_MAX_GAP. Also catches blocks that merely touch
+        # after padding, so we never cut and immediately rejoin the same moment.
         merged: list[Segment] = []
+        bridged = 0
         for s in segments:
-            if merged and s.start - merged[-1].end < 0.25:
+            if merged and s.start - merged[-1].end < BRIDGE_MAX_GAP:
+                if s.start - merged[-1].end > 0.25:
+                    bridged += 1
                 merged[-1] = Segment(merged[-1].start, max(merged[-1].end, s.end))
             else:
                 merged.append(s)
         segments = merged
+        segments, grown = _grow_to_minimum(segments, transcript)
 
         captions: list[Caption] = []
 
@@ -324,6 +414,9 @@ def _to_edl(data: dict, source: SourceInfo, transcript: Transcript) -> tuple[EDL
                 "hook": v.get("hook", ""),
                 "reframe": v.get("reframe", "crop"),
                 "picks": picked,
+                "bridged": bridged,
+                "grown_s": round(grown, 1),
+                "cuts": max(0, len(segments) - 1),
             }
         )
 
@@ -375,7 +468,7 @@ def make_plan(
         repair = ""
         best: dict | None = None
 
-        for _ in range(2):
+        for _ in range(3):
             resp = post_json(
                 url,
                 headers,

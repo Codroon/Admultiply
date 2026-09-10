@@ -1,0 +1,101 @@
+{
+  "source": "video2.mp4",
+  "duration_s": 43.27,
+  "transcription_usd": 0.0,
+  "plan_usd": 0.001021,
+  "measured_ai_usd": 0.001021,
+  "wall_clock_s": 24.9,
+  "plan": {
+    "variations": [
+      {
+        "strategy": "Hook-first",
+        "hook": "We don't do Nike techs.",
+        "reframe": "blur",
+        "picks": [
+          {
+            "beats": "0-1",
+            "start": 0.06,
+            "end": 5.16,
+            "why": "Strong opening claim immediately addresses the viewer."
+          },
+          {
+            "beats": "15-19",
+            "start": 23.34,
+            "end": 28.04,
+            "why": "Visual focus on lifestyle aspect with a call to change."
+          }
+        ],
+        "bridged": 0,
+        "grown_s": 0.0,
+        "cuts": 1
+      },
+      {
+        "strategy": "Problem → Solution",
+        "hook": "Change your life, gang.",
+        "reframe": "blur",
+        "picks": [
+          {
+            "beats": "19",
+            "start": 27.18,
+            "end": 28.04,
+            "why": "This beat presents a relatable call to action that resonates with the viewer."
+          },
+          {
+            "beats": "15-22",
+            "start": 23.34,
+            "end": 30.66,
+            "why": "This block emphasizes the shift from old habits (Nike tech) to a more desirable choice (quarter zips) that is visually highlighted."
+          }
+        ],
+        "bridged": 0,
+        "grown_s": 1.0,
+        "cuts": 0
+      },
+      {
+        "strategy": "Social proof",
+        "hook": "Upgrade your style, gang.",
+        "reframe": "blur",
+        "picks": [
+          {
+            "beats": "15-17",
+            "start": 23.34,
+            "end": 26.72,
+            "why": "Highlights the lifestyle change and visually engaging."
+          },
+          {
+            "beats": "20-22",
+            "start": 28.14,
+            "end": 30.66,
+            "why": "Strong action statement that complements the previous block."
+          }
+        ],
+        "bridged": 1,
+        "grown_s": 1.0,
+        "cuts": 0
+      }
+    ]
+  },
+  "clips": [
+    {
+      "id": "hook-first",
+      "strategy": "Hook-first",
+      "file": "video2__hook-first__blur.mp4",
+      "duration_s": 9.8,
+      "size_mb": 8.07
+    },
+    {
+      "id": "problem-solution",
+      "strategy": "Problem → Solution",
+      "file": "video2__problem-solution__blur.mp4",
+      "duration_s": 8.34,
+      "size_mb": 6.8
+    },
+    {
+      "id": "social-proof",
+      "strategy": "Social proof",
+      "file": "video2__social-proof__blur.mp4",
+      "duration_s": 8.34,
+      "size_mb": 6.8
+    }
+  ]
+}

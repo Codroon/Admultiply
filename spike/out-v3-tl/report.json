@@ -1,0 +1,101 @@
+{
+  "source": "video3.mp4",
+  "duration_s": 60.57,
+  "transcription_usd": 0.0,
+  "plan_usd": 0.001017,
+  "measured_ai_usd": 0.001017,
+  "wall_clock_s": 29.0,
+  "plan": {
+    "variations": [
+      {
+        "strategy": "Hook-first",
+        "hook": "Dramatic hair transformation revealed!",
+        "reframe": "crop",
+        "picks": [
+          {
+            "beats": "8-14",
+            "start": 19.6,
+            "end": 42.34,
+            "why": "Starts with the hook of transformation and quickly discusses the technique."
+          },
+          {
+            "beats": "19",
+            "start": 52.64,
+            "end": 54.78,
+            "why": "Ends with the impressive results, showcasing the effectiveness."
+          }
+        ],
+        "bridged": 0,
+        "grown_s": 0.0,
+        "cuts": 1
+      },
+      {
+        "strategy": "Problem → Solution",
+        "hook": "Different hair needs different things.",
+        "reframe": "crop",
+        "picks": [
+          {
+            "beats": "12-14",
+            "start": 30.32,
+            "end": 42.34,
+            "why": "Identifies the problem of different hair needs."
+          },
+          {
+            "beats": "18-19",
+            "start": 50.88,
+            "end": 54.78,
+            "why": "Presents the solution with a strong outcome."
+          }
+        ],
+        "bridged": 0,
+        "grown_s": 0.0,
+        "cuts": 1
+      },
+      {
+        "strategy": "Social proof",
+        "hook": "Different hair needs different things.",
+        "reframe": "crop",
+        "picks": [
+          {
+            "beats": "14",
+            "start": 34.64,
+            "end": 42.34,
+            "why": "Showcases the technique and thought process behind the extensions."
+          },
+          {
+            "beats": "19",
+            "start": 52.64,
+            "end": 54.78,
+            "why": "Ends on impressive results, showcasing effectiveness."
+          }
+        ],
+        "bridged": 0,
+        "grown_s": 0.0,
+        "cuts": 1
+      }
+    ]
+  },
+  "clips": [
+    {
+      "id": "hook-first",
+      "strategy": "Hook-first",
+      "file": "video3__hook-first__crop.mp4",
+      "duration_s": 24.88,
+      "size_mb": 13.55
+    },
+    {
+      "id": "problem-solution",
+      "strategy": "Problem → Solution",
+      "file": "video3__problem-solution__crop.mp4",
+      "duration_s": 15.92,
+      "size_mb": 7.57
+    },
+    {
+      "id": "social-proof",
+      "strategy": "Social proof",
+      "file": "video3__social-proof__crop.mp4",
+      "duration_s": 9.84,
+      "size_mb": 4.59
+    }
+  ]
+}

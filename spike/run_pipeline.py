@@ -155,7 +155,14 @@ def main() -> int:
 
     print()
     for v, r in zip(p.edl.variations, p.reasoning["variations"]):
-        print(f"  {v.strategy}  ({v.output_duration:.1f}s, reframe={r['reframe']})")
+        cuts = r.get("cuts", 0)
+        bridged = r.get("bridged", 0)
+        note = f", {cuts} cut" + ("" if cuts == 1 else "s")
+        if bridged:
+            note += f", {bridged} micro-gap bridged"
+        if r.get("grown_s"):
+            note += f", extended {r['grown_s']}s to reach length"
+        print(f"  {v.strategy}  ({v.output_duration:.1f}s, {r['reframe']}{note})")
         print(f"    hook: \"{r['hook']}\"")
         for pick in r["picks"]:
             print(
