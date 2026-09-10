@@ -123,8 +123,18 @@ class EDL:
 # --------------------------------------------------------------------------- #
 
 
-def validate(edl: EDL, source_duration: float) -> list[str]:
-    """Check an EDL against the source. Empty list means it's renderable."""
+def validate(
+    edl: EDL, source_duration: float, *, include_duration: bool = True
+) -> list[str]:
+    """Check an EDL against the source.
+
+    `include_duration` separates two different kinds of wrong. Overlapping
+    segments or out-of-bounds times make a clip unrenderable. Being 0.5s over
+    a target length does not -- it is a preference, and killing an otherwise
+    good job over it is worse than shipping the clip. The repair loop checks
+    both so the model tries to hit the band; the final render gate checks
+    only what actually breaks.
+    """
     errors: list[str] = []
 
     if not edl.variations:
@@ -171,7 +181,9 @@ def validate(edl: EDL, source_duration: float) -> list[str]:
                 )
 
         total = v.output_duration
-        if total < MIN_OUTPUT_SECONDS:
+        if not include_duration:
+            pass
+        elif total < MIN_OUTPUT_SECONDS:
             errors.append(
                 f"{tag}: total length {total:.1f}s is under the {MIN_OUTPUT_SECONDS}s minimum."
             )

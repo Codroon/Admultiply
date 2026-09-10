@@ -1,0 +1,92 @@
+{
+  "source": "AI Business Solutions - Abdullah Zaidi_720p_caption.mp4",
+  "duration_s": 36.89,
+  "transcription_usd": 0.0,
+  "plan_usd": 0.0,
+  "measured_ai_usd": 0.0,
+  "wall_clock_s": 27.2,
+  "plan": {
+    "variations": [
+      {
+        "strategy": "Hook-first",
+        "hook": "Stop doing everything manually!",
+        "reframe": "crop",
+        "picks": [
+          {
+            "beats": "0",
+            "start": 0.06,
+            "end": 2.88,
+            "why": "This is the most arresting question to hook viewers."
+          },
+          {
+            "beats": "2-8",
+            "start": 7.06,
+            "end": 30.76,
+            "why": "Follows up with a strong solution and details."
+          }
+        ]
+      },
+      {
+        "strategy": "Problem → Solution",
+        "hook": "Custom AI solutions for your business",
+        "reframe": "crop",
+        "picks": [
+          {
+            "beats": "1",
+            "start": 2.86,
+            "end": 7.18,
+            "why": "Establishes credibility as an experienced AI developer."
+          },
+          {
+            "beats": "7-9",
+            "start": 25.4,
+            "end": 36.82,
+            "why": "Emphasizes customization and the affordable starting price for the service."
+          }
+        ]
+      },
+      {
+        "strategy": "Social proof",
+        "hook": "100% custom built for your business",
+        "reframe": "crop",
+        "picks": [
+          {
+            "beats": "7-8",
+            "start": 25.4,
+            "end": 30.76,
+            "why": "Emphasizes the tailored approach, building credibility."
+          },
+          {
+            "beats": "9",
+            "start": 30.72,
+            "end": 36.82,
+            "why": "Ends with a strong call to action and the offer."
+          }
+        ]
+      }
+    ]
+  },
+  "clips": [
+    {
+      "id": "hook-first",
+      "strategy": "Hook-first",
+      "file": "AI Business Solutions - Abdullah Zaidi_720p_caption__hook-first__crop.mp4",
+      "duration_s": 26.52,
+      "size_mb": 8.96
+    },
+    {
+      "id": "problem-solution",
+      "strategy": "Problem → Solution",
+      "file": "AI Business Solutions - Abdullah Zaidi_720p_caption__problem-solution__crop.mp4",
+      "duration_s": 15.74,
+      "size_mb": 5.16
+    },
+    {
+      "id": "social-proof",
+      "strategy": "Social proof",
+      "file": "AI Business Solutions - Abdullah Zaidi_720p_caption__social-proof__crop.mp4",
+      "duration_s": 11.42,
+      "size_mb": 3.83
+    }
+  ]
+}

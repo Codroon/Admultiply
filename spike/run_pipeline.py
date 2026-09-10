@@ -142,7 +142,9 @@ def main() -> int:
     )
     print(f"  {tag}{'  [repaired after validation]' if p.repaired else ''}")
 
-    errors = validate(p.edl, source.duration)
+    # Only block on what genuinely cannot render; duration is a preference
+    # the repair loop already tried to satisfy.
+    errors = validate(p.edl, source.duration, include_duration=False)
     if errors:
         print("\n  PLAN REJECTED even after repair:")
         for e in errors:
@@ -168,14 +170,21 @@ def main() -> int:
     print("=" * 66)
     want_captions = args.captions == "on"
     if args.captions == "auto":
-        # If the source already carries burned-in captions, ours stack a
-        # near-duplicate underneath. TwelveLabs can see that; without it we
-        # assume it does, since most real ad creative is captioned.
-        has_own = vis.on_screen_text if vis and vis.on_screen_text is not None else True
-        want_captions = not has_own
-        why = "source has its own" if has_own else "source has none"
-        source_of_truth = "detected" if vis and vis.on_screen_text is not None else "assumed"
-        print(f"  captions: {'on' if want_captions else 'off'} ({why}, {source_of_truth})")
+        # Off, deliberately, even when analysis claims the source has no text.
+        #
+        # TwelveLabs reported ON_SCREEN_TEXT: no for a source with large burned-in
+        # captions across the lower third, and we stacked ours on top of them.
+        # The harm is asymmetric: a false "on" produces two sets of text and looks
+        # broken, while a false "off" just leaves the source as its author made it.
+        # So we take the safe side until a deterministic detector exists -- frame
+        # differencing across the lower third would do it, no model needed.
+        want_captions = False
+        claim = (
+            f" (analysis claimed on-screen text: {vis.on_screen_text})"
+            if vis and vis.on_screen_text is not None
+            else ""
+        )
+        print(f"  captions: off - safe default{claim}. Use --captions on to force.")
     if not want_captions:
         for v in p.edl.variations:
             v.captions = []
