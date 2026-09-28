@@ -30,6 +30,11 @@ from transcribe import Transcript, transcribe
 from understand import Brief, understand
 
 Progress = Callable[[str, str], None]
+# Fired once planning is done, with the storyline reasoning, so a UI can name
+# the three slots before any render exists.
+OnPlan = Callable[[list[dict], Brief], None]
+# Fired after each render lands, so a UI can reveal clips progressively.
+OnClip = Callable[[int, RenderResult, dict], None]
 
 STAGES = ["probing", "analyzing", "transcribing", "understanding", "planning", "rendering", "ready"]
 
@@ -109,6 +114,8 @@ def run(
     out_dir: Path,
     opts: Options | None = None,
     on_progress: Progress | None = None,
+    on_plan: OnPlan | None = None,
+    on_clip: OnClip | None = None,
 ) -> Result:
     opts = opts or Options()
     env = load_env()
@@ -184,20 +191,24 @@ def run(
         for v in plan.edl.variations:
             v.captions = []
 
+    if on_plan:
+        on_plan(plan.reasoning["variations"], brief)
+
     # --------------------------------------------------------------- render
     clips: list[RenderResult] = []
     total = len(plan.edl.variations)
     for i, (v, why) in enumerate(zip(plan.edl.variations, plan.reasoning["variations"]), 1):
         fit = why["reframe"] if opts.fit == "auto" else opts.fit
         progress("rendering", f"{i} of {total}: {v.strategy}")
-        clips.append(
-            render_variation(
-                v, source, out_dir,
-                fit=fit,
-                watermark=opts.watermark,
-                content_crop=content_crop,
-            )
+        clip = render_variation(
+            v, source, out_dir,
+            fit=fit,
+            watermark=opts.watermark,
+            content_crop=content_crop,
         )
+        clips.append(clip)
+        if on_clip:
+            on_clip(i - 1, clip, why)
 
     result = Result(
         source=source,

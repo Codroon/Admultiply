@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Clapperboard, RefreshCcw, Sparkles, UploadCloud } from "lucide-react";
+import { Captions, Clapperboard, RefreshCcw, Sparkles, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
@@ -18,12 +18,16 @@ const fmtDuration = (s: number) =>
 const fmtSize = (b: number) => `${(b / (1024 * 1024)).toFixed(1)} MB`;
 
 export function UploadHero({ compact = false }: { compact?: boolean }) {
-  const { tokens, startJob, openUpgrade } = useDashboard();
+  const { tokens, hd, startJob, openUpgrade } = useDashboard();
   const toast = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [picked, setPicked] = useState<Picked | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Off by default: most ads already carry burned-in captions, and stacking
+  // ours on top looks broken. The customer knows their own video; we don't
+  // try to detect it. Paid feature, like HD downloads.
+  const [captions, setCaptions] = useState(false);
 
   const inspect = (file: File) => {
     setError(null);
@@ -59,7 +63,11 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
       openUpgrade();
       return;
     }
-    const res = startJob(picked.file, { duration: fmtDuration(picked.duration) });
+    const res = startJob(
+      picked.file,
+      { duration: fmtDuration(picked.duration) },
+      { captions: hd && captions }
+    );
     if (res === "ok") {
       setPicked(null);
       toast("Upload started — 1 token held", "info");
@@ -169,6 +177,49 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
                 Multiply this ad · 1 token
               </Button>
             </div>
+          </div>
+
+          {/* Options — captions are a paid feature, gated like HD downloads */}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border-subtle)] pt-4 dark:border-[var(--color-border-dark-subtle)]">
+            <div className="flex items-start gap-3">
+              <Captions
+                size={18}
+                className={`mt-0.5 shrink-0 ${
+                  hd ? "text-brand-500" : "text-[var(--color-ink-muted)] opacity-50"
+                }`}
+              />
+              <div>
+                <p className="flex items-center gap-2 text-sm font-semibold">
+                  Add captions
+                  {!hd && (
+                    <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400">
+                      Plus &amp; up
+                    </span>
+                  )}
+                </p>
+                <p className="mt-0.5 max-w-md text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
+                  {hd
+                    ? "Word-synced captions burned into each clip. Leave off if your ad already has them."
+                    : "Word-synced captions burned into each clip. Upgrade to switch this on."}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={hd && captions}
+              aria-label="Add captions"
+              onClick={() => (hd ? setCaptions((c) => !c) : openUpgrade())}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                hd && captions ? "bg-brand-500" : "bg-black/15 dark:bg-white/20"
+              } ${hd ? "" : "cursor-pointer opacity-60"}`}
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                  hd && captions ? "left-[22px]" : "left-0.5"
+                }`}
+              />
+            </button>
           </div>
         </Card>
       )}

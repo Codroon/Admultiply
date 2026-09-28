@@ -41,13 +41,15 @@ export function VideoPlayer({
       className={`group relative cursor-pointer overflow-hidden rounded-xl bg-zinc-900 ${className}`}
       onClick={toggle}
     >
+      {/* Not muted: play is always user-initiated (tap), so browsers allow
+          sound, and the client needs to hear the cuts to judge them. The
+          showcase marquee has its own muted hover-to-play player. */}
       <video
         ref={ref}
         src={src}
         poster={poster}
         playsInline
         loop
-        muted
         preload="metadata"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}

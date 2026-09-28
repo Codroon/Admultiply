@@ -44,6 +44,7 @@ next-env.d.ts
 
 # pipeline spike
 spike/output*/
+spike/jobs/
 spike/cache/
 __pycache__/
 *.pyc

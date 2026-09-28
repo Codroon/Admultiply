@@ -9,19 +9,30 @@ FastAPI, no Celery, no database.
 
 ```
 video.mp4
-   ↓  ffprobe        duration, resolution, codec, audio           step 1
-   ↓  bar detection  strip baked-in letterbox/pillarbox           step 1
-   ↓  TwelveLabs     what is SEEN: framing, on-screen text, moments  step 2
-   ↓  Whisper-1      what is SAID: transcript + word timings      step 3
-   ↓  beat splitting our code: cut the script into clauses        step 3
-   ↓  GPT-4o Mini    picks which beats to keep, by number         step 4
-   ↓  FFmpeg         cut, reframe 9:16, fade, encode              step 1
+   ↓  ffprobe        duration, resolution, codec, audio
+   ↓  bar detection  strip baked-in letterbox/pillarbox
+   ↓  TwelveLabs     what is SEEN: framing, on-screen text, moments
+   ↓  Whisper-1      what is SAID: transcript + word timings
+   ↓  beat splitting our code: cut the script into clauses
+   ↓  GPT-4o Mini    UNDERSTAND: the brief — product, arc, moments, angles
+   ↓  GPT-4o Mini    STORYLINES: one cut per angle, composed from moments
+   ↓  FFmpeg         cut, bridge, reframe 9:16, fade, encode
 3 clips + report.json
 ```
 
-The AI never touches the video file. It reads text and returns numbers;
-FFmpeg does all the video work. That's why it costs cents and takes under a
-minute.
+The AI never touches the video file. It reads text and returns moment ids;
+FFmpeg does all the video work. That's why it costs about a cent and takes
+under a minute.
+
+Planning is two passes on purpose. The first reads the transcript and the
+visual analysis together and writes a brief a strategist would recognise:
+what's being sold, the narrative arc, the ad broken into **moments** (each
+rated as an opener, each noting what's on screen), and which three angles
+this particular ad can support. The second composes one storyline per angle
+from those moments — the way an editor thinks, rather than picking clauses
+off a list. Distinctness is enforced in code: openings must be different
+shots at least ~10s apart in the source, and cuts may share at most one
+moment beyond that.
 
 ## Setup
 
@@ -38,27 +49,61 @@ OPENAI_API_KEY=...
 TWELVELABS_API_KEY=...
 ```
 
-## Running
+## Running from the command line
 
 ```bash
 python spike/run_pipeline.py <video>                  # full pipeline
 python spike/run_pipeline.py <video> --watermark      # free-tier preview
+python spike/run_pipeline.py <video> --captions on    # burn our captions
 python spike/run_pipeline.py <video> --visual off     # skip TwelveLabs
-python spike/run_pipeline.py <video> --replan         # new plan, cached inputs
-python spike/run_render.py   <video> --fit both       # render only, no AI
+python spike/run_pipeline.py <video> --replan         # new storylines, cached brief
+python spike/run_pipeline.py <video> --rebrief        # new brief + storylines
 ```
 
 Output and `report.json` land in `spike/output/`.
+
+## Running with the dashboard
+
+Two servers. The pipeline API needs `fastapi` and `uvicorn`:
+
+```bash
+pip install fastapi "uvicorn[standard]" python-multipart
+
+# terminal 1 — the pipeline API
+cd spike && uvicorn api:app --port 8000
+
+# terminal 2 — the dashboard
+npm run dev
+```
+
+With `NEXT_PUBLIC_PIPELINE_URL=http://localhost:8000` in `.env.local`, the
+dashboard at http://localhost:3000/dashboard uploads to the real pipeline:
+the stepper reports live stages, the three slots are named as soon as
+planning finishes, and clips appear one by one as each render lands. Remove
+the variable and the dashboard falls back to the simulated demo.
+
+The API is the production shape in miniature — same endpoints, same job
+JSON, same progressive reveal. Jobs and their clips live in `spike/jobs/`.
+
+| Endpoint | |
+|---|---|
+| `POST /jobs` | multipart `file`, optional `id`, `captions`, `watermark` |
+| `GET /jobs/{id}` | stage, human-readable detail, planned slots, finished clips |
+| `GET /clips/{id}/{file}` | the rendered mp4s and their poster frames |
 
 ## Files
 
 | File | Role |
 |---|---|
-| `edl.py` | **The contract** — what the AI must produce, and its validation |
+| `edl.py` | **The contract** — what planning must produce, and its validation |
+| `pipeline.py` | `run()` — the whole pipeline as a function with progress callbacks |
+| `api.py` | FastAPI wrapper over `run()`; what the dashboard talks to |
+| `run_pipeline.py` | CLI wrapper over `run()` |
+| `understand.py` | Planning pass 1 — the brief: moments, angles, **the strategist prompt** |
+| `plan.py` | Planning pass 2 — storylines from moments, guardrails, **the editor prompt** |
+| `analyze.py` | TwelveLabs visual analysis |
+| `transcribe.py` | Whisper + beat reconstruction |
 | `ffmpeg_tools.py` | Binary discovery, probing, letterbox detection |
-| `analyze.py` | Step 2 — TwelveLabs visual analysis |
-| `transcribe.py` | Step 3 — Whisper + beat reconstruction |
-| `plan.py` | Step 4 — the edit plan, and **the prompts** |
 | `render.py` | Filter graph, ASS captions, fades, encode |
 | `net.py` | Dependency-free HTTP with retries |
 | `config.py` | Env loading and the fingerprint cache |
