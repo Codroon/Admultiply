@@ -264,3 +264,39 @@ def detect_content_crop(source: SourceInfo, samples: int = 5) -> ContentCrop | N
     if width <= 0 or height <= 0:
         return None
     return ContentCrop(width=width, height=height, x=left, y=top)
+
+
+# --------------------------------------------------------------------------- #
+# Scene changes
+# --------------------------------------------------------------------------- #
+
+_PTS_RE = re.compile(r"pts_time:([0-9.]+)")
+
+
+def detect_scene_cuts(source: SourceInfo, threshold: float = 0.3) -> list[float]:
+    """Timestamps where the picture changes sharply.
+
+    The visual equivalent of a sentence boundary. On an ad with no dialogue
+    there are no words to cut on, so cuts land on scene changes instead:
+    cutting on one reads as an edit, cutting a second either side of one
+    reads as a mistake. `threshold` is ffmpeg's scene score, 0-1; 0.3 catches
+    hard cuts and most fast dissolves without firing on camera motion.
+    """
+    proc = subprocess.run(
+        [
+            binary("ffmpeg"),
+            "-hide_banner",
+            "-i", str(source.path),
+            "-vf", f"select='gt(scene,{threshold})',showinfo",
+            "-an",
+            "-f", "null",
+            "-",
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    cuts = sorted({round(float(t), 2) for t in _PTS_RE.findall(proc.stderr or "")})
+    # A cut in the first or last third of a second is the file boundary, not an edit.
+    return [c for c in cuts if 0.3 < c < source.duration - 0.3]

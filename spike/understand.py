@@ -31,7 +31,7 @@ from net import post_json
 from transcribe import Transcript
 
 MODEL = "gpt-4o-mini"
-CACHE_VARIANT = f"{MODEL}-brief-v1"
+CACHE_VARIANT = f"{MODEL}-brief-v2"  # v2: visual-first mode
 PRICE_IN = 0.15 / 1_000_000
 PRICE_OUT = 0.60 / 1_000_000
 
@@ -108,6 +108,11 @@ class Brief:
     cached: bool = False
     seconds_taken: float = 0.0
     raw: dict = field(default_factory=dict)
+    # "speech": moments are beat ranges, cuts land on word boundaries.
+    # "visual": moments are time ranges from the picture, cuts land on scene
+    # changes. Set from the transcript's mode.
+    mode: str = "speech"
+    scene_cuts: list[float] = field(default_factory=list)
 
     def moment(self, mid: str) -> Moment | None:
         return next((m for m in self.moments if m.id == mid), None)
@@ -170,6 +175,66 @@ SCHEMA = {
         "additionalProperties": False,
     },
 }
+
+SCHEMA_VISUAL = {
+    "name": "ad_brief_visual",
+    "strict": True,
+    "schema": {
+        **SCHEMA["schema"],
+        "properties": {
+            **SCHEMA["schema"]["properties"],
+            "moments": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "label": {"type": "string"},
+                        "start": {"type": "number", "description": "Seconds into the video."},
+                        "end": {"type": "number", "description": "Seconds into the video."},
+                        "role": {"type": "string", "enum": ROLES},
+                        "strength": {"type": "integer", "description": "1-5 as an opener."},
+                        "shown": {"type": "string", "description": "What is on screen."},
+                    },
+                    "required": ["label", "start", "end", "role", "strength", "shown"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+    },
+}
+
+SYSTEM_VISUAL = f"""You are a senior creative strategist at a performance \
+marketing agency. Before an editor re-cuts a long ad into short vertical \
+versions, you write the brief.
+
+This ad has little or no dialogue. The PICTURE is the story. You are given a \
+timestamped description of what is on screen, and possibly a few spoken lines.
+
+Your job:
+
+1. Identify the product, the audience and the format.
+2. Describe the narrative arc in one sentence.
+3. Break the ad into MOMENTS using start and end times in seconds. A moment is \
+one visual idea: the product reveal, the demonstration, the transformation, \
+the lifestyle shot, the logo close. Each must be between {MIN_MOMENT_SECONDS:g} \
+and {MAX_MOMENT_SECONDS:g} seconds -- split a long sequence into its shots. \
+Moments must not overlap and must appear in order. Aim for one every 4-8 \
+seconds and cover the whole video, including the ending.
+4. Say what is on screen in each ("shown").
+5. Rate each moment 1-5 as an OPENER. A 5 stops the scroll in two seconds -- \
+a striking product shot, a visible transformation, dramatic motion. A 1 is \
+connective footage.
+6. Recommend exactly THREE angles from this list, best fit first, that the \
+footage can deliver:
+
+{ANGLE_GUIDE}
+
+With no dialogue, favour visual angles: "Before → After" when something \
+visibly changes, "How it works" when something is demonstrated, "Feature \
+spotlight" for a hero product shot, "Hook-first" for the most arresting \
+image. Only recommend "Problem → Solution" or "Social proof" if the picture \
+alone can carry them."""
+
 
 SYSTEM = f"""You are a senior creative strategist at a performance marketing \
 agency. Before an editor re-cuts a long ad into short vertical versions, you \
@@ -319,6 +384,179 @@ def _normalise(moments: list[Moment], transcript: Transcript) -> list[Moment]:
     return sized
 
 
+def _prompt_visual(source: SourceInfo, transcript: Transcript, visual: str, repair: str) -> str:
+    spoken = ""
+    if transcript.beats:
+        lines = "\n".join(f"[{b.start:.1f}-{b.end:.1f}s] {b.text}" for b in transcript.beats)
+        spoken = f"\n\nThe few spoken lines, with timings:\n\n{lines}"
+    out = f"""Source ad: {source.path.name}
+Length: {source.duration:.1f} seconds
+
+What is on screen (from video analysis):
+
+{visual}{spoken}
+
+Write the brief."""
+    if repair:
+        out += (
+            "\n\nYour previous brief was rejected for these reasons. Fix them and "
+            "keep everything else:\n" + repair
+        )
+    return out
+
+
+def _split_visual(m: Moment, cuts: list[float]) -> list[Moment]:
+    """Halve an oversize visual moment at the scene change nearest its midpoint."""
+    if m.duration <= MAX_MOMENT_SECONDS:
+        return [m]
+    mid = (m.start + m.end) / 2
+    inside = [c for c in cuts if m.start + 1.0 < c < m.end - 1.0]
+    at = min(inside, key=lambda c: abs(c - mid)) if inside else mid
+    left = Moment(m.id, m.label, -1, -1, m.role, m.strength, m.shown, m.start, at, m.parent)
+    right = Moment(m.id, m.label, -1, -1, m.role, max(1, m.strength - 1), m.shown, at, m.end, m.parent)
+    return _split_visual(left, cuts) + _split_visual(right, cuts)
+
+
+def _gap_moments(a: float, b: float, cuts: list[float], parent_from: int) -> list[Moment]:
+    """Cut an undescribed span into shots at its scene changes."""
+    edges = [a] + [c for c in cuts if a + 0.5 < c < b - 0.5] + [b]
+    out: list[Moment] = []
+    for i, (x, y) in enumerate(zip(edges, edges[1:])):
+        if y - x < MIN_MOMENT_SECONDS and out:
+            out[-1].end = y  # too short to stand alone; join the previous shot
+            continue
+        out.append(
+            Moment("", "Footage (not described)", -1, -1, "demo", 2, "", x, y, parent_from + i)
+        )
+    return out
+
+
+def _normalise_visual(moments: list[Moment], duration: float, cuts: list[float]) -> list[Moment]:
+    """Same guarantees as _normalise, on time ranges instead of beat ranges."""
+    ordered = sorted(moments, key=lambda m: (m.start, m.end))
+    disjoint: list[Moment] = []
+    for m in ordered:
+        m.start = max(0.0, min(m.start, duration))
+        m.end = max(0.0, min(m.end, duration))
+        if disjoint and m.start < disjoint[-1].end:
+            m.start = disjoint[-1].end
+        if m.end - m.start < 0.5:
+            continue
+        disjoint.append(m)
+
+    # Fill what the analysis left undescribed. Asked for whole-video coverage,
+    # TwelveLabs still skipped a twenty-second stretch of a stylist working --
+    # footage the planner then could not use and the opening rule could not
+    # reach. Cut such gaps into shots at scene changes and offer them as
+    # low-strength material: fine mid-cut, unlikely to open one. The stretch
+    # after the last moment is left for the ending logic below.
+    filled: list[Moment] = []
+    cursor = 0.0
+    gap_parent = 20_000
+    for m in disjoint:
+        if m.start - cursor > MIN_MOMENT_SECONDS:
+            pieces = _gap_moments(cursor, m.start, cuts, gap_parent)
+            gap_parent += len(pieces)
+            filled.extend(pieces)
+        filled.append(m)
+        cursor = m.end
+    disjoint = filled
+
+    sized: list[Moment] = []
+    for m in disjoint:
+        parts = _split_visual(m, cuts)
+        if len(parts) > 1:
+            for k, part in enumerate(parts, 1):
+                part.label = f"{m.label} ({k}/{len(parts)})"
+        sized.extend(parts)
+
+    if sized and duration - sized[-1].end > ENDING_TOLERANCE:
+        a = sized[-1].end
+        tail = Moment("", "Close: final shot", -1, -1, "close", 4, "", a, duration, parent=10_000)
+        sized.extend(_split_visual(tail, cuts))
+    elif len(sized) > 1 and sized[-1].duration < MIN_MOMENT_SECONDS:
+        # A sliver at the end is not a close; fold it into the shot before it.
+        last = sized.pop()
+        sized[-1].end = last.end
+
+    for i, m in enumerate(sized, 1):
+        m.id = f"m{i}"
+        if m.duration < MIN_MOMENT_SECONDS and m.role != "close":
+            m.role, m.strength = "filler", 1
+    return sized
+
+
+def _to_brief_visual(
+    raw: dict, transcript: Transcript, cuts: list[float]
+) -> tuple[Brief, list[str]]:
+    errors: list[str] = []
+    duration = transcript.duration
+    moments: list[Moment] = []
+    for i, m in enumerate(raw.get("moments", [])):
+        a, b = float(m.get("start", 0)), float(m.get("end", 0))
+        if a > b:
+            a, b = b, a
+        if b > duration + 0.5:
+            errors.append(f"moment {i + 1} ends at {b:.1f}s but the video is {duration:.1f}s long.")
+            b = duration
+        moments.append(
+            Moment(
+                id=f"m{i + 1}",
+                label=m.get("label", "").strip() or f"Moment {i + 1}",
+                from_beat=-1,
+                to_beat=-1,
+                role=m.get("role", "filler"),
+                strength=max(1, min(5, int(m.get("strength", 3)))),
+                shown=m.get("shown", "").strip(),
+                start=a,
+                end=b,
+                parent=i,
+            )
+        )
+
+    for x, y in zip(moments, moments[1:]):
+        if y.start < x.end - 0.05:
+            errors.append(
+                f"{x.label!r} and {y.label!r} overlap in time. Moments must be in "
+                f"order and must not overlap."
+            )
+    for m in moments:
+        if m.duration > MAX_MOMENT_SECONDS:
+            errors.append(
+                f"{m.label!r} runs {m.duration:.1f}s; the maximum is "
+                f"{MAX_MOMENT_SECONDS:g}s. Split it into its shots."
+            )
+    need = min_moments_for(duration)
+    if len(moments) < need:
+        errors.append(
+            f"Only {len(moments)} moments for a {duration:.0f}s ad; at least {need} "
+            f"are needed. Break longer sequences into their shots."
+        )
+    if moments and duration - max(m.end for m in moments) > ENDING_TOLERANCE:
+        errors.append("The ending is not part of any moment. The final shot must be a moment.")
+
+    angles: list[str] = []
+    for a in raw.get("angles", []):
+        if a in ANGLES and a not in angles:
+            angles.append(a)
+    if len(angles) != 3:
+        errors.append(f"Recommended {len(angles)} distinct angles; exactly three are required.")
+
+    brief = Brief(
+        product=raw.get("product", ""),
+        audience=raw.get("audience", ""),
+        format=raw.get("format", "mixed"),
+        arc=raw.get("arc", ""),
+        moments=_normalise_visual(moments, duration, cuts),
+        angles=angles[:3],
+        angle_reasoning=raw.get("angle_reasoning", ""),
+        raw=raw,
+        mode="visual",
+        scene_cuts=cuts,
+    )
+    return brief, errors
+
+
 def _to_brief(raw: dict, transcript: Transcript) -> tuple[Brief, list[str]]:
     """Build the Brief and return any structural problems as repair text."""
     errors: list[str] = []
@@ -405,6 +643,7 @@ def _to_brief(raw: dict, transcript: Transcript) -> tuple[Brief, list[str]]:
         angles=angles[:3],
         angle_reasoning=raw.get("angle_reasoning", ""),
         raw=raw,
+        mode="speech",
     )
     return brief, errors
 
@@ -415,15 +654,28 @@ def understand(
     api_key: str,
     *,
     visual: str = "",
+    scene_cuts: list[float] | None = None,
     force: bool = False,
 ) -> Brief:
     fingerprint = file_fingerprint(source.path)
-    variant = CACHE_VARIANT + ("-v" if visual else "")
+    visual_mode = transcript.mode != "speech"
+    if visual_mode and not visual:
+        raise RuntimeError(
+            "This ad has no dialogue to cut on and no visual analysis to plan "
+            "from. Turn visual analysis on, or upload an ad with a voiceover."
+        )
+    cuts = scene_cuts or []
+    variant = CACHE_VARIANT + ("-vis" if visual_mode else "-v" if visual else "")
+
+    def build(raw: dict) -> tuple[Brief, list[str]]:
+        if visual_mode:
+            return _to_brief_visual(raw, transcript, cuts)
+        return _to_brief(raw, transcript)
 
     if not force:
         cached = cache_read(fingerprint, "brief", variant)
         if cached:
-            brief, _ = _to_brief(cached["raw"], transcript)
+            brief, _ = build(cached["raw"])
             brief.cached = True
             return brief
 
@@ -443,10 +695,18 @@ def understand(
             {
                 "model": MODEL,
                 "messages": [
-                    {"role": "system", "content": SYSTEM},
-                    {"role": "user", "content": _prompt(source, transcript, visual, repair)},
+                    {"role": "system", "content": SYSTEM_VISUAL if visual_mode else SYSTEM},
+                    {
+                        "role": "user",
+                        "content": (_prompt_visual if visual_mode else _prompt)(
+                            source, transcript, visual, repair
+                        ),
+                    },
                 ],
-                "response_format": {"type": "json_schema", "json_schema": SCHEMA},
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": SCHEMA_VISUAL if visual_mode else SCHEMA,
+                },
                 "temperature": 0.3,
             },
         )
@@ -454,7 +714,7 @@ def understand(
         cost += usage.get("prompt_tokens", 0) * PRICE_IN + usage.get("completion_tokens", 0) * PRICE_OUT
 
         raw = json.loads(resp["choices"][0]["message"]["content"])
-        brief, errors = _to_brief(raw, transcript)
+        brief, errors = build(raw)
         if not errors:
             break
         repair = "\n".join(f"- {e}" for e in errors)

@@ -29,7 +29,15 @@ from ffmpeg_tools import SourceInfo
 from net import ApiError, get_json, post_json, post_multipart
 
 BASE = "https://api.twelvelabs.io/v1.3"
-CACHE_VARIANT = "pegasus-v1"
+CACHE_VARIANT = "pegasus-v2"  # v2: denser moments, whole-video coverage
+
+# Pinned on purpose. The API's implicit default (pegasus1.2) was sunset
+# between two of our test runs, and every new upload started failing with a
+# swallowed error while cached analyses carried on working -- which is how a
+# client's video fell through to a hallucinated transcript. A provider default
+# is a dependency you did not choose; name the model, as with whisper-1 and
+# gpt-4o-mini.
+MODEL = "pegasus1.5"
 
 # Verified 2026 pricing: indexing $0.042/min + Pegasus analysis $0.0292/min.
 PRICE_PER_MINUTE = 0.042 + 0.0292
@@ -180,6 +188,7 @@ def analyze(
             f"{BASE}/analyze",
             {"x-api-key": api_key},
             {
+                "model_name": MODEL,
                 # `type` names which source field to read -- it lives inside the
                 # video object, not at the request root.
                 "video": {"type": "asset_id", "asset_id": asset_id},

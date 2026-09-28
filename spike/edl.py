@@ -209,7 +209,7 @@ def warnings(edl: EDL) -> list[str]:
         total = v.output_duration
         if total and not (lo <= total <= hi):
             notes.append(
-                f"variation '{v.id}' is {total:.1f}s; the {lo:g}–{hi:g}s band tends "
+                f"variation '{v.id}' is {total:.1f}s; the {lo:g}-{hi:g}s band tends "
                 f"to perform best for paid social."
             )
         if not v.captions:

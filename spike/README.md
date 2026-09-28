@@ -24,6 +24,19 @@ The AI never touches the video file. It reads text and returns moment ids;
 FFmpeg does all the video work. That's why it costs about a cent and takes
 under a minute.
 
+**Ads with no dialogue take a different path.** After transcription the
+pipeline classifies the speech — `speech`, `sparse`, or `none` — by how much
+of the runtime has words in it. A voiceover ad cuts on word boundaries. A
+silent or music-only ad (a product montage, motion graphics, a before/after
+with a soundtrack) has nothing to cut on, so it cuts on **scene changes**
+instead: the moments come from what TwelveLabs *sees* rather than what
+Whisper *hears*, the brief recommends visual angles (Before → After, How it
+works, Feature spotlight), and any stretch the analysis left undescribed is
+sliced into shots at its scene cuts so the planner can still reach it. This
+is the case where visual analysis is load-bearing rather than a nice-to-have;
+without it, a silent ad fails with a clear message instead of a hallucinated
+transcript.
+
 Planning is two passes on purpose. The first reads the transcript and the
 visual analysis together and writes a brief a strategist would recognise:
 what's being sold, the narrative arc, the ad broken into **moments** (each

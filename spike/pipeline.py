@@ -20,9 +20,9 @@ from pathlib import Path
 from typing import Callable
 
 from analyze import VisualAnalysis, analyze
-from config import load_env
+from config import cache_read, cache_write, file_fingerprint, load_env
 from edl import validate, warnings
-from ffmpeg_tools import ContentCrop, SourceInfo, detect_content_crop, probe
+from ffmpeg_tools import ContentCrop, SourceInfo, detect_content_crop, detect_scene_cuts, probe
 from net import ApiError
 from plan import PlanResult, make_plan
 from render import RenderResult, render_variation
@@ -93,6 +93,9 @@ class Result:
                     "plan": self.plan.cached,
                 },
             },
+            "mode": self.brief.mode,
+            "speech_seconds": round(self.transcript.speech_seconds, 1),
+            "scene_cuts": len(self.brief.scene_cuts),
             "brief": self.plan.reasoning.get("brief", {}),
             "variations": [
                 {
@@ -141,19 +144,48 @@ def run(
 
     # -------------------------------------------------------------- visual
     visual: VisualAnalysis | None = None
+    visual_error = ""
     if opts.visual and tl_key:
         progress("analyzing", "TwelveLabs")
         try:
             visual = analyze(source, tl_key, force=opts.force_visual)
         except (ApiError, RuntimeError, TimeoutError) as e:
+            # Survivable on a dialogue ad; fatal on a silent one. Keep the
+            # reason so the failure message can say what actually happened.
+            visual_error = str(e)
             notes.append(f"Visual analysis skipped: {e}")
             visual = None
+    elif not tl_key:
+        visual_error = "no TWELVELABS_API_KEY configured"
+    else:
+        visual_error = "visual analysis was turned off for this job"
 
     # ----------------------------------------------------------- transcribe
     progress("transcribing", "Whisper")
     transcript = transcribe(source, openai_key, force=opts.force_transcript)
-    if not transcript.beats:
-        raise RuntimeError("No speech found to cut on. This ad needs dialogue or voiceover.")
+
+    # Which path? Dialogue throughout: cut on words. Otherwise: cut on the
+    # picture, which needs the visual analysis to have run.
+    scene_cuts: list[float] = []
+    if transcript.mode != "speech":
+        if visual is None:
+            raise RuntimeError(
+                "This ad has no dialogue to cut on"
+                + (" and no audio track" if not source.has_audio else "")
+                + f", so it needs visual analysis -- which failed: {visual_error}. "
+                "Upload an ad with a voiceover, or try again."
+            )
+        notes.append(
+            "No dialogue found; cut from the picture on scene changes."
+            if transcript.mode == "none"
+            else "Little dialogue; cut from the picture, spoken lines kept for captions."
+        )
+        progress("analyzing", "finding scene changes")
+        fp = file_fingerprint(source.path)
+        cached = cache_read(fp, "scenes")
+        scene_cuts = cached["cuts"] if cached else detect_scene_cuts(source)
+        if not cached:
+            cache_write(fp, "scenes", {"cuts": scene_cuts})
 
     # ----------------------------------------------------------- understand
     progress("understanding", "building the brief")
@@ -162,6 +194,7 @@ def run(
         transcript,
         openai_key,
         visual=visual.for_prompt() if visual else "",
+        scene_cuts=scene_cuts,
         force=opts.force_brief,
     )
 

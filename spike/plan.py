@@ -33,6 +33,7 @@ from edl import (
     EDL,
     IDEAL_RANGE,
     MIN_OUTPUT_SECONDS,
+    MIN_SEGMENT_SECONDS,
     Caption,
     Segment,
     Variation,
@@ -44,7 +45,7 @@ from transcribe import Transcript
 from understand import ANGLE_GUIDE, Brief
 
 MODEL = "gpt-4o-mini"
-CACHE_VARIANT = f"{MODEL}-story-v2"  # v2: parent-aware sharing, opening swap, scaled gap
+CACHE_VARIANT = f"{MODEL}-story-v3"  # v3: visual-first realisation
 PRICE_IN = 0.15 / 1_000_000
 PRICE_OUT = 0.60 / 1_000_000
 
@@ -62,7 +63,13 @@ BRIDGE_MAX_GAP = 3.0
 # caught: two cuts whose first five seconds matched. Scaled to the ad: ten
 # seconds on a 90s ad is fair, on a 43s ad with five moments it leaves no
 # legal combination.
-def opening_gap_for(duration: float) -> float:
+def opening_gap_for(duration: float, mode: str = "speech") -> float:
+    if mode == "visual":
+        # Visual moments are already distinct shots, delimited by scene
+        # changes, so a different moment is a different opening by
+        # construction; this only rules out the same instant. The ten-second
+        # rule exists for speech, where adjacent clauses share a shot.
+        return 2.0
     return max(6.0, min(10.0, duration / 6.0))
 
 # Beyond the opening, cuts may share at most this many moments. A shared
@@ -122,8 +129,9 @@ You choose moments by id. You never invent timestamps.
 Rules you never break:
 
 - The clip runs {IDEAL_RANGE[0]:g}-{IDEAL_RANGE[1]:g} seconds. Add the moment \
-durations up. Never exceed 25.
-- Use 1-3 moments. Two is usually right.
+durations up and hit that band. Never exceed 25.
+- Use 2-5 moments. When moments are short, use more of them -- the length \
+target matters more than keeping the sequence brief.
 - Moments play in source order, earliest first. List them that way.
 - The opening decides everything. Open on a moment with high opener strength \
 that fits the angle. Never open on filler or on mid-way context.
@@ -170,6 +178,16 @@ def _prompt(
     taken: list[dict],
     repair: str,
 ) -> str:
+    # Spell out the arithmetic. On a visual ad the good moments run 2-4s, and
+    # left to itself the model picked two of them and called a 6s clip done.
+    usable = [m for m in brief.moments if m.role != "filler"]
+    mean = sum(m.duration for m in usable) / len(usable) if usable else 0.0
+    need = max(2, round(IDEAL_RANGE[0] / mean)) if mean else 3
+    sizing = (
+        f"\n\nThese moments average {mean:.1f}s, so reaching "
+        f"{IDEAL_RANGE[0]:g}-{IDEAL_RANGE[1]:g}s takes about {need} of them."
+    )
+
     out = f"""Source ad: {source.path.name}  ({source.duration:.1f}s)
 Product: {brief.product}
 Audience: {brief.audience}
@@ -178,7 +196,7 @@ Arc: {brief.arc}
 
 Moments:
 
-{brief.menu()}
+{brief.menu()}{sizing}
 
 Build ONE storyline using the "{angle}" angle."""
 
@@ -198,9 +216,9 @@ Build ONE storyline using the "{angle}" angle."""
             f"Build this cut mainly from moments no other cut has used: "
             f"{', '.join(unused) if unused else 'none left -- do your best'}. "
             f"You may include at most ONE moment another cut already used. Your "
-            f"opening must be at least {opening_gap_for(source.duration):.0f} seconds "
-            f"away from the openings above. Three people watching the three cuts "
-            f"should describe three different ads."
+            f"opening must be at least {opening_gap_for(source.duration, brief.mode):.0f} "
+            f"seconds away from the openings above. Three people watching the three "
+            f"cuts should describe three different ads."
         )
     if repair:
         out += (
@@ -226,6 +244,30 @@ def _padded_span(transcript: Transcript, i: int, j: int) -> tuple[float, float]:
     return start, max(start + 0.1, end)
 
 
+SCENE_SNAP = 0.75  # seconds; a cut this close to a scene change lands on it
+
+
+def _snap_scene(t: float, cuts: list[float]) -> float:
+    if not cuts:
+        return t
+    nearest = min(cuts, key=lambda c: abs(c - t))
+    return nearest if abs(nearest - t) <= SCENE_SNAP else t
+
+
+def _visual_span(m, cuts: list[float], duration: float) -> tuple[float, float]:
+    """Time span for a visual moment, cut on scene changes where one is near.
+
+    The picture's equivalent of snapping to a word boundary: a cut that lands
+    on a scene change reads as an edit, one that lands a second either side
+    reads as a mistake.
+    """
+    start = _snap_scene(m.start, cuts)
+    end = _snap_scene(m.end, cuts)
+    if end - start < 1.0:
+        end = min(duration, start + max(1.0, m.duration))
+    return max(0.0, start), min(duration, end)
+
+
 def _bridge(segments: list[Segment]) -> tuple[list[Segment], int]:
     merged: list[Segment] = []
     bridged = 0
@@ -240,39 +282,44 @@ def _bridge(segments: list[Segment]) -> tuple[list[Segment], int]:
 
 
 def _grow_to_minimum(
-    segments: list[Segment], transcript: Transcript, target: float = IDEAL_RANGE[0]
+    segments: list[Segment],
+    boundaries: list[tuple[float, bool]],
+    duration: float,
+    target: float = IDEAL_RANGE[0],
 ) -> tuple[list[Segment], float]:
     """Extend blocks forward until the clip is a watchable length.
 
     A backstop, not a strategy: the model chooses the angle, this only stops a
     7-second clip reaching the render. Grows toward the ideal floor and stops
-    at the first sentence break past it.
+    at the first good boundary past it.
 
-    Tries the last block first, then earlier ones. A cut that ends on the ad's
-    final line has nothing after it to grow into -- the previous block does.
+    `boundaries` are (time, good_stop): a beat's padded end and whether it
+    completes a sentence, or a scene change and True. Tries the FIRST block
+    first. Growing the last block meant every short cut dragged into the same
+    outro and three cuts converged on one ending; a hook that runs a little
+    longer into what follows it is the more natural extension, and a block
+    with no room simply passes to the next.
     """
     total = lambda: sum(s.duration for s in segments)  # noqa: E731
     if not segments or total() >= target:
         return segments, 0.0
 
     grown = 0.0
-    for idx in range(len(segments) - 1, -1, -1):
+    for idx in range(len(segments)):
         seg = segments[idx]
-        # May grow until just before the next block, or the end of the ad.
-        room = segments[idx + 1].start - MIN_GAP_KEEP if idx + 1 < len(segments) else transcript.duration
+        room = segments[idx + 1].start - MIN_GAP_KEEP if idx + 1 < len(segments) else duration
         before = seg.end
-        for beat in transcript.beats:
-            # Compare ENDS. The previous beat's PAD_OUT pushes seg.end just past
-            # the next beat's start; a start-based check skipped exactly the
-            # sentence-ending beats that should have stopped growth, and one
-            # clip ran on to 46 seconds.
-            if beat.end <= seg.end + 0.05:
+        for at, good in boundaries:
+            # Compare against the segment END. A start-based check skipped the
+            # very boundary that should have stopped growth, and one clip ran
+            # on to 46 seconds.
+            if at <= seg.end + 0.05:
                 continue
-            end = min(beat.end + PAD_OUT, room)
+            end = min(at, room)
             if end <= seg.end:
                 break
             segments[idx] = seg = Segment(seg.start, end)
-            if total() >= target and beat.ends_sentence:
+            if total() >= target and good:
                 break
         grown += seg.end - before
         if total() >= target:
@@ -333,14 +380,27 @@ def _realise(
         (s for s in raw.get("sequence", []) if brief.moment(str(s.get("moment", ""))) is not None),
         key=lambda s: brief.moment(str(s["moment"])).start,
     )
+    visual = brief.mode == "visual"
     for step in steps:
         m = brief.moment(str(step["moment"]))
-        start, end = _padded_span(transcript, m.from_beat, m.to_beat)
+        if visual or m.from_beat < 0:
+            start, end = _visual_span(m, brief.scene_cuts, transcript.duration)
+        else:
+            start, end = _padded_span(transcript, m.from_beat, m.to_beat)
         segments.append(Segment(start, end))
         used.append(m.id)
 
+    # Where a block may grow to: the next word boundary that completes a
+    # sentence, or the next scene change.
+    if visual:
+        boundaries = [(c, True) for c in brief.scene_cuts] + [(transcript.duration, True)]
+    else:
+        boundaries = [(b.end + PAD_OUT, b.ends_sentence) for b in transcript.beats]
+
     segments, bridged = _bridge(segments)
-    segments, grown = _grow_to_minimum(segments, transcript)
+    segments, grown = _grow_to_minimum(segments, boundaries, transcript.duration)
+    # A flash frame can never reach the render, whatever produced it.
+    segments = [x for x in segments if x.duration >= MIN_SEGMENT_SECONDS]
     if grown:
         # Growth may have closed the gap to the next block; bridge again so we
         # never cut and immediately rejoin.
@@ -414,7 +474,7 @@ def _storyline_errors(
     if opening.role == "filler":
         errors.append(f"{opening.id} is filler; never open on filler.")
 
-    gap = opening_gap_for(source_duration)
+    gap = opening_gap_for(source_duration, brief.mode)
     for t in taken:
         if t["opening"] == opening.id or t["opening_parent"] == opening.parent:
             errors.append(
@@ -444,25 +504,33 @@ def _storyline_errors(
     return errors
 
 
-def _enforce_opening(raw: dict, brief: Brief, taken: list[dict], source_duration: float) -> tuple[dict, str]:
-    """Deterministic fallback: if the opening is still too close to another
-    cut's after repair, substitute the strongest unused moment that isn't.
+def _enforce_distinct(
+    raw: dict, brief: Brief, taken: list[dict], source_duration: float
+) -> tuple[dict, list[str]]:
+    """Deterministic fallback once repair has run out.
 
-    The model kept choosing openings in the same ten seconds because that is
-    where the product introduction lives and every angle wants it. Telling it
-    so three times did not move it. The rest of the storyline is kept; only
-    the opening changes, and the report says so.
+    Two rules the model kept breaking after three tries: an opening too close
+    to another cut's, and sharing more than one moment with another cut. Both
+    are fixed by substitution -- the offending moment is swapped for the
+    strongest unused one in the same part of the ad. If nothing can be
+    substituted, an extra shared moment is dropped and the length backstop
+    fills in. The rest of the storyline is kept, and the report says what
+    changed.
     """
-    seq = raw.get("sequence") or []
-    chosen = sorted(
-        (m for s in seq if (m := brief.moment(str(s.get("moment")))) is not None),
-        key=lambda m: m.start,
-    )
-    if not chosen or not taken:
-        return raw, ""
+    seq = [dict(s) for s in raw.get("sequence") or []]
+    if not seq or not taken:
+        return raw, []
 
-    gap = opening_gap_for(source_duration)
-    opening = chosen[0]
+    changes: list[str] = []
+    gap = opening_gap_for(source_duration, brief.mode)
+    other_openings = {t["opening_parent"] for t in taken}
+    used_parents = {p for t in taken for p in t["parents"]}
+
+    def chosen() -> list:
+        return sorted(
+            (m for s in seq if (m := brief.moment(str(s.get("moment")))) is not None),
+            key=lambda m: m.start,
+        )
 
     def clashes(m) -> bool:
         return any(
@@ -470,27 +538,67 @@ def _enforce_opening(raw: dict, brief: Brief, taken: list[dict], source_duration
             for t in taken
         )
 
-    if not clashes(opening):
-        return raw, ""
+    def substitute(old, *, lo: float, hi: float, as_opening: bool):
+        """The best replacement for `old` that keeps source order.
 
-    used_parents = {p for t in taken for p in t["parents"]}
-    after = chosen[1].start if len(chosen) > 1 else source_duration
-    candidates = [
-        m for m in brief.moments
-        if m.role != "filler"
-        and m.parent not in used_parents
-        and m.parent != opening.parent
-        and not clashes(m)
-        and m.start < after
-    ]
-    if not candidates:
-        return raw, ""
+        An opening may be a shot another cut uses mid-way -- one shared moment
+        is allowed -- but never another cut's opening, and never too close to
+        one. A mid-cut substitute must be wholly unused, or it just moves the
+        sharing around.
+        """
+        mine = {c.id for c in chosen()}
+        pool = [
+            m for m in brief.moments
+            if m.role != "filler"
+            and m.id not in mine
+            and m.parent != old.parent
+            and m.parent not in other_openings
+            and lo <= m.start < hi
+            and (not clashes(m) if as_opening else m.parent not in used_parents)
+        ]
+        if not pool:
+            return None
+        return max(
+            pool,
+            key=lambda m: (m.parent not in used_parents, m.strength, -abs(m.start - old.start)),
+        )
 
-    best = max(candidates, key=lambda m: (m.strength, -m.start))
-    new_seq = [
-        {"moment": best.id, "why": f"Opening substituted for distinctness (was {opening.id})."}
-    ] + [s for s in seq if str(s.get("moment")) != opening.id]
-    return {**raw, "sequence": new_seq}, f"opening {opening.id} -> {best.id}"
+    def swap(old, new, why: str) -> None:
+        for s in seq:
+            if str(s.get("moment")) == old.id:
+                s["moment"], s["why"] = new.id, why
+                break
+        changes.append(f"{old.id}->{new.id}")
+
+    # 1. The opening must be its own shot, a decent distance from the others'.
+    c = chosen()
+    if c and clashes(c[0]):
+        hi = c[1].start if len(c) > 1 else source_duration
+        new = substitute(c[0], lo=0.0, hi=hi, as_opening=True)
+        if new is not None:
+            swap(c[0], new, f"Opening substituted for distinctness (was {c[0].id}).")
+
+    # 2. At most one moment in common with any other cut.
+    for t in taken:
+        theirs = set(t["parents"])
+        c = chosen()
+        shared = [m for m in c if m.parent in theirs]
+        while len(shared) > MAX_SHARED_MOMENTS and c:
+            # Keep the opening if it is one of the shared ones; lose the latest.
+            victim = shared[-1] if shared[-1] is not c[0] else shared[-2]
+            idx = c.index(victim)
+            lo = c[idx - 1].end if idx > 0 else 0.0
+            hi = c[idx + 1].start if idx + 1 < len(c) else source_duration
+            new = substitute(victim, lo=lo, hi=hi, as_opening=False)
+            if new is not None:
+                swap(victim, new, f"Substituted for distinctness (was {victim.id}).")
+            else:
+                seq = [s for s in seq if str(s.get("moment")) != victim.id]
+                changes.append(f"{victim.id} dropped")
+            c = chosen()
+            shared = [m for m in c if m.parent in theirs]
+
+    return ({**raw, "sequence": seq} if changes else raw), changes
 
 
 # --------------------------------------------------------------------------- #
@@ -541,6 +649,10 @@ def make_plan(
         repair = ""
         best: dict | None = None
         best_var: Variation | None = None
+        # Keep the attempt with the fewest rule violations, not the last one.
+        # Try 1 short, try 2 right length but over-shared, try 3 short again:
+        # "last" kept the short one.
+        best_score = 10**9
 
         for _ in range(3):
             resp = post_json(
@@ -563,17 +675,18 @@ def make_plan(
 
             candidate = json.loads(resp["choices"][0]["message"]["content"])
             var, _ = _realise(candidate, angle, brief, transcript)
-            best, best_var = candidate, var
 
             errors = _storyline_errors(var, candidate, brief, source.duration, taken, previous)
+            if len(errors) < best_score:
+                best, best_var, best_score = candidate, var, len(errors)
             if not errors:
                 break
             repair = "\n".join(f"- {e}" for e in errors)
             repaired = True
 
         if best is not None and best_var is not None:
-            best, swapped = _enforce_opening(best, brief, taken, source.duration)
-            if swapped:
+            best, changes = _enforce_distinct(best, brief, taken, source.duration)
+            if changes:
                 best_var, _ = _realise(best, angle, brief, transcript)
                 repaired = True
             raw[angle] = best

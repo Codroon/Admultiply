@@ -28,7 +28,7 @@ from ffmpeg_tools import SourceInfo, binary, run
 from net import post_multipart
 
 MODEL = "whisper-1"
-CACHE_VARIANT = f"{MODEL}-v3"  # v3 = clause-level beats
+CACHE_VARIANT = f"{MODEL}-v5"  # v5 = filter only sparse transcripts; v4 ate real speech
 PRICE_PER_MINUTE = 0.006  # USD, verified 2026
 
 _SENTENCE_END = re.compile(r"[.!?]+[\"')\]]*$")
@@ -73,6 +73,13 @@ class Transcript:
     cached: bool
     seconds_taken: float
     beats: list[Beat] = field(default_factory=list)
+    # How much the words can be trusted to carry the edit.
+    #   speech  -- dialogue throughout; cut on word boundaries (the default path)
+    #   sparse  -- a line or two over a mostly visual ad; plan from the picture,
+    #              keep the words for captions
+    #   none    -- no usable speech; plan from the picture alone
+    mode: str = "speech"
+    speech_seconds: float = 0.0
 
     # ------------------------------------------------------------------ #
     # Snapping
@@ -186,6 +193,63 @@ def build_beats(text: str, words: list[Word]) -> list[Beat]:
 
 
 # --------------------------------------------------------------------------- #
+# Hallucination filter and speech classification
+# --------------------------------------------------------------------------- #
+
+# Whisper invents text on silence and music -- a token at the very end, a
+# "thanks for watching", a phantom sentence. Its own per-segment confidence
+# marks them: high no_speech_prob, low average log-probability. These are the
+# thresholds the community has converged on.
+NO_SPEECH_PROB = 0.6
+MIN_AVG_LOGPROB = -1.0
+
+# Below this, the words cannot carry an edit. 20% of a 60s ad is 12s of speech.
+SPEECH_DENSITY = 0.20
+MIN_SPEECH_WORDS = 8
+MIN_SPEECH_SECONDS = 3.0
+
+# A transcript with fewer words than this is Whisper's hallucination zone and
+# gets the confidence filter; anything denser is real dialogue and is trusted.
+SPARSE_WORDS = 30
+
+
+def _drop_hallucinations(words: list[Word], segments: list[dict]) -> list[Word]:
+    """Remove words inside segments Whisper itself does not believe in."""
+    bad: list[tuple[float, float]] = [
+        (float(sg.get("start", 0)), float(sg.get("end", 0)))
+        for sg in segments
+        if float(sg.get("no_speech_prob", 0)) > NO_SPEECH_PROB
+        or float(sg.get("avg_logprob", 0)) < MIN_AVG_LOGPROB
+    ]
+    kept = []
+    for w in words:
+        if w.end - w.start <= 0.02:  # zero-length token: an artefact, not a word
+            continue
+        if any(a - 0.05 <= w.start and w.end <= b + 0.05 for a, b in bad):
+            continue
+        kept.append(w)
+    return kept
+
+
+def classify(words: list[Word], duration: float) -> tuple[str, float]:
+    speech = sum(w.end - w.start for w in words)
+    if len(words) < MIN_SPEECH_WORDS or speech < MIN_SPEECH_SECONDS:
+        return "none", speech
+    if duration > 0 and speech / duration < SPEECH_DENSITY:
+        return "sparse", speech
+    return "speech", speech
+
+
+def silent(source: SourceInfo) -> Transcript:
+    """The transcript of a video with no audio track: nothing, honestly."""
+    return Transcript(
+        text="", words=[], language="?", duration=source.duration,
+        cost_usd=0.0, cached=False, seconds_taken=0.0, beats=[],
+        mode="none", speech_seconds=0.0,
+    )
+
+
+# --------------------------------------------------------------------------- #
 # API
 # --------------------------------------------------------------------------- #
 
@@ -206,6 +270,9 @@ def extract_audio(source: SourceInfo, fingerprint: str) -> Path:
 
 
 def transcribe(source: SourceInfo, api_key: str, *, force: bool = False) -> Transcript:
+    if not source.has_audio:
+        return silent(source)
+
     fingerprint = file_fingerprint(source.path)
 
     if not force:
@@ -221,6 +288,8 @@ def transcribe(source: SourceInfo, api_key: str, *, force: bool = False) -> Tran
                 cost_usd=0.0,
                 cached=True,
                 seconds_taken=0.0,
+                mode=cached.get("mode", "speech"),
+                speech_seconds=cached.get("speech_seconds", 0.0),
             )
 
     audio = extract_audio(source, fingerprint)
@@ -244,7 +313,19 @@ def transcribe(source: SourceInfo, api_key: str, *, force: bool = False) -> Tran
     ]
     text = data.get("text", "")
     duration = float(data.get("duration") or source.duration)
-    beats = build_beats(text, words)
+    # Only police a transcript that is already thin. Whisper hallucinates on
+    # silence and music, where it returns a handful of tokens; on real
+    # dialogue its per-segment confidence dips for accents, speed and music
+    # beds, and filtering on it ate half of a genuine voiceover. A dense
+    # transcript is trusted as-is.
+    if len(words) < SPARSE_WORDS:
+        words = _drop_hallucinations(words, data.get("segments", []))
+    else:
+        words = [w for w in words if w.end - w.start > 0.02]
+    mode, speech_seconds = classify(words, duration)
+    if mode == "none":
+        words, text = [], ""
+    beats = build_beats(text, words) if words else []
 
     cache_write(
         fingerprint,
@@ -263,6 +344,8 @@ def transcribe(source: SourceInfo, api_key: str, *, force: bool = False) -> Tran
                 }
                 for b in beats
             ],
+            "mode": mode,
+            "speech_seconds": round(speech_seconds, 2),
         },
         CACHE_VARIANT,
     )
@@ -276,4 +359,6 @@ def transcribe(source: SourceInfo, api_key: str, *, force: bool = False) -> Tran
         cost_usd=(duration / 60.0) * PRICE_PER_MINUTE,
         cached=False,
         seconds_taken=elapsed,
+        mode=mode,
+        speech_seconds=speech_seconds,
     )
