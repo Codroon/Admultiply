@@ -1,101 +1,237 @@
 {
   "source": "video1.mp4",
   "duration_s": 44.57,
-  "transcription_usd": 0.0,
-  "plan_usd": 0.000712,
-  "measured_ai_usd": 0.000712,
-  "wall_clock_s": 34.1,
-  "plan": {
-    "variations": [
+  "resolution": "576x1024",
+  "wall_clock_s": 32.6,
+  "cost": {
+    "twelvelabs_usd": 0.0,
+    "whisper_usd": 0.0,
+    "brief_usd": 0.0,
+    "plan_usd": 0.00116,
+    "ai_total_usd": 0.00116,
+    "cached": {
+      "twelvelabs": true,
+      "whisper": true,
+      "brief": true,
+      "plan": false
+    }
+  },
+  "brief": {
+    "product": "Numos Firm Collagen gummies",
+    "audience": "Women looking for wellness solutions and collagen support",
+    "format": "testimonial",
+    "arc": "A woman shares her struggles with maintaining wellness and introduces Numos Firm Collagen as her solution.",
+    "angles": [
+      "Problem → Solution",
+      "How it works",
+      "Social proof"
+    ],
+    "angle_reasoning": "The ad effectively outlines the daily struggles women face and presents the product as a solution, making it ideal for a Problem → Solution angle. Additionally, it highlights specific benefits of the product, supporting a How it works angle, and includes social proof through the woman's personal recommendation.",
+    "moments": [
       {
-        "strategy": "Hook-first",
-        "hook": "Did you know about C-Mos?",
-        "reframe": "blur",
-        "picks": [
-          {
-            "beats": "9-11",
-            "start": 22.78,
-            "end": 34.5,
-            "why": "Starts with a strong surprising fact about C-Mos, directly engaging the viewer."
-          },
-          {
-            "beats": "15-18",
-            "start": 34.5,
-            "end": 38.5,
-            "why": "Includes a clear product shot while transitioning from the hook."
-          }
-        ],
-        "bridged": 0,
-        "grown_s": 0.0,
-        "cuts": 0
+        "id": "m1",
+        "label": "Problem: Daily Struggles (1/2)",
+        "start": 0.0,
+        "end": 7.0,
+        "role": "problem",
+        "strength": 3,
+        "shown": "A woman walks towards and enters a grand red door, establishing a sophisticated setting."
       },
       {
-        "strategy": "Problem → Solution",
-        "hook": "Collagen production declines after 30!",
-        "reframe": "blur",
-        "picks": [
-          {
-            "beats": "4-5",
-            "start": 7.4,
-            "end": 12.56,
-            "why": "Addresses the problem of decreasing collagen production."
-          },
-          {
-            "beats": "7-8",
-            "start": 13.9,
-            "end": 22.82,
-            "why": "Introduces the solution with the product and its benefits."
-          }
-        ],
-        "bridged": 1,
-        "grown_s": 0.0,
-        "cuts": 0
+        "id": "m2",
+        "label": "Problem: Daily Struggles (2/2)",
+        "start": 7.6,
+        "end": 12.2,
+        "role": "problem",
+        "strength": 2,
+        "shown": "A woman walks towards and enters a grand red door, establishing a sophisticated setting."
       },
       {
-        "strategy": "Social proof",
-        "hook": "Top wellness change I've made",
-        "reframe": "crop",
-        "picks": [
-          {
-            "beats": "7-8",
-            "start": 13.9,
-            "end": 22.82,
-            "why": "Introduces the product as a solution with immediate benefits."
-          },
-          {
-            "beats": "11-12",
-            "start": 29.8,
-            "end": 38.5,
-            "why": "Ends on product benefits and a strong recommendation."
-          }
-        ],
-        "bridged": 0,
-        "grown_s": 0.0,
-        "cuts": 1
+        "id": "m3",
+        "label": "Problem: Collagen Concerns",
+        "start": 12.7,
+        "end": 13.6,
+        "role": "filler",
+        "strength": 1,
+        "shown": "Close-up of a woman sipping coffee and reading a menu in a warm, upscale cafe."
+      },
+      {
+        "id": "m4",
+        "label": "Product Introduction",
+        "start": 14.1,
+        "end": 22.4,
+        "role": "product",
+        "strength": 5,
+        "shown": "Clear product shot of the 'Numos Firm Collagen' bottle on a marble table."
+      },
+      {
+        "id": "m5",
+        "label": "Product Benefits: C-Mos",
+        "start": 23.0,
+        "end": 27.9,
+        "role": "proof",
+        "strength": 4,
+        "shown": "The woman takes the product bottle out of a blue handbag in a bathroom setting."
+      },
+      {
+        "id": "m6",
+        "label": "Product Benefits: Additional Ingredients",
+        "start": 27.9,
+        "end": 34.1,
+        "role": "proof",
+        "strength": 4,
+        "shown": "The woman eats a gummy supplement while looking into a mirror."
+      },
+      {
+        "id": "m7",
+        "label": "Closing Recommendation",
+        "start": 34.7,
+        "end": 38.1,
+        "role": "close",
+        "strength": 5,
+        "shown": "The woman walks down a city street holding the product, wearing sunglasses."
       }
     ]
   },
-  "clips": [
+  "variations": [
     {
-      "id": "hook-first",
-      "strategy": "Hook-first",
-      "file": "video1__hook-first__blur.mp4",
-      "duration_s": 15.72,
-      "size_mb": 11.12
-    },
-    {
-      "id": "problem-solution",
       "strategy": "Problem → Solution",
-      "file": "video1__problem-solution__blur.mp4",
-      "duration_s": 15.42,
-      "size_mb": 9.11
+      "title": "Transform Your Wellness Journey Today",
+      "logline": "A woman shares her wellness struggles and discovers Numos Firm Collagen as her solution.",
+      "reframe": "crop",
+      "moments": [
+        {
+          "id": "m1",
+          "label": "Problem: Daily Struggles (1/2)",
+          "why": "Opens with the relatable struggles of daily wellness, setting the stage for the solution."
+        },
+        {
+          "id": "m4",
+          "label": "Product Introduction",
+          "why": "Introduces the product clearly as the answer to her struggles, emphasizing its presence."
+        }
+      ],
+      "used": [
+        "m1",
+        "m4"
+      ],
+      "picks": [
+        {
+          "start": 0.06,
+          "end": 7.38
+        },
+        {
+          "start": 13.9,
+          "end": 22.82
+        }
+      ],
+      "bridged": 0,
+      "grown_s": 0.0,
+      "cuts": 1,
+      "file": "video1__problem-solution__crop.mp4",
+      "duration_s": 16.24,
+      "size_mb": 10.15,
+      "render_s": 8.4
     },
     {
-      "id": "social-proof",
+      "strategy": "How it works",
+      "title": "Transform Your Wellness Routine",
+      "logline": "See how Numos Firm Collagen boosts wellness effortlessly.",
+      "reframe": "crop",
+      "moments": [
+        {
+          "id": "m5",
+          "label": "Product Benefits: C-Mos",
+          "why": "This moment showcases the woman engaging with the product in a relatable setting, demonstrating its convenience."
+        },
+        {
+          "id": "m6",
+          "label": "Product Benefits: Additional Ingredients",
+          "why": "It visually emphasizes the product's use and immediate benefits, reinforcing how it fits into a daily routine."
+        },
+        {
+          "id": "m7",
+          "label": "Closing Recommendation",
+          "why": "Ends with a strong recommendation, showcasing confidence in the product."
+        }
+      ],
+      "used": [
+        "m5",
+        "m6",
+        "m7"
+      ],
+      "picks": [
+        {
+          "start": 22.78,
+          "end": 38.5
+        }
+      ],
+      "bridged": 0,
+      "grown_s": 0.0,
+      "cuts": 0,
+      "file": "video1__how-it-works__crop.mp4",
+      "duration_s": 15.72,
+      "size_mb": 11.12,
+      "render_s": 8.9
+    },
+    {
       "strategy": "Social proof",
+      "title": "Transform Your Wellness with Collagen",
+      "logline": "A woman shares her wellness struggles and confidently introduces Numos Firm Collagen gummies as the key to her transformation.",
+      "reframe": "crop",
+      "moments": [
+        {
+          "id": "m4",
+          "label": "Product Introduction",
+          "why": "It features a strong product introduction with a clear shot of the product, setting the stage for social proof."
+        },
+        {
+          "id": "m7",
+          "label": "Closing Recommendation",
+          "why": "It provides a closing recommendation from the woman, reinforcing her endorsement of the product."
+        }
+      ],
+      "used": [
+        "m4",
+        "m7"
+      ],
+      "picks": [
+        {
+          "start": 13.9,
+          "end": 22.82
+        },
+        {
+          "start": 34.5,
+          "end": 38.5
+        }
+      ],
+      "bridged": 0,
+      "grown_s": 0.0,
+      "cuts": 1,
       "file": "video1__social-proof__crop.mp4",
-      "duration_s": 17.62,
-      "size_mb": 12.27
+      "duration_s": 12.92,
+      "size_mb": 8.84,
+      "render_s": 7.3
     }
+  ],
+  "overlap": [
+    {
+      "a": "Problem → Solution",
+      "b": "How it works",
+      "overlap": 0.0
+    },
+    {
+      "a": "Problem → Solution",
+      "b": "Social proof",
+      "overlap": 0.69
+    },
+    {
+      "a": "How it works",
+      "b": "Social proof",
+      "overlap": 0.31
+    }
+  ],
+  "warnings": [
+    "Source is 576px wide; output is upscaled to 1080."
   ]
 }

@@ -1,18 +1,25 @@
-"""Step 4 -- the edit plan.
+"""Pass 2 of planning -- compose three storylines from the brief.
 
-GPT-4o Mini's only job is to decide *what to keep and why*. It does no timing
-arithmetic, writes no captions, and never touches ffmpeg.
+Pass 1 (understand.py) turned the ad into a handful of MOMENTS, each a
+narrative unit with a role and a strength rating as an opener. This pass
+builds one micro-ad storyline per recommended angle by choosing and ordering
+moments -- the way an editor thinks, rather than picking clauses off a list.
 
-The key design decision: **the model picks whole sentences by index, not
-timestamps.** Asking a language model for float timestamps and snapping them
-afterwards sounds reasonable and isn't -- a cut it intends at 6.3s lands in the
-middle of a thought, and no amount of snapping recovers the intent. Choosing
-from a numbered list of complete sentences makes a mid-sentence cut
-structurally impossible, and it is an easier decision for the model besides:
-pick from six options rather than invent a number.
+Three guardrails, all enforced in code and fed back as repair text:
 
-Timings then come from the transcript, padded into the natural silence between
-sentences so speech never clips.
+  1. Openings must be different moments.
+  2. Openings must be at least MIN_OPENING_GAP seconds apart in the source.
+     Two adjacent moments are the same opening from the viewer's side -- the
+     client caught exactly this: two clips whose first five seconds matched.
+  3. No two storylines may share more than MAX_OVERLAP of their footage.
+
+Storylines are generated one per call, each told what the previous ones took.
+A small model cannot hold "these three must differ" across outputs written in
+one pass; it can easily avoid a list of things already used.
+
+Realisation -- moments to beats to padded time spans, bridging of small gaps,
+the minimum-length backstop, captions from the transcript -- is deterministic
+and unchanged from before. The model never touches a timestamp.
 """
 
 from __future__ import annotations
@@ -34,137 +41,105 @@ from edl import (
 from ffmpeg_tools import SourceInfo
 from net import post_json
 from transcribe import Transcript
+from understand import ANGLE_GUIDE, Brief
 
 MODEL = "gpt-4o-mini"
-CACHE_VARIANT = f"{MODEL}-v4"  # v4 = beats + visual analysis
+CACHE_VARIANT = f"{MODEL}-story-v2"  # v2: parent-aware sharing, opening swap, scaled gap
 PRICE_IN = 0.15 / 1_000_000
 PRICE_OUT = 0.60 / 1_000_000
 
-STRATEGIES = ["Hook-first", "Problem → Solution", "Social proof"]
-
-# Breathing room, taken from the silence either side of a sentence. Cutting on
-# the exact millisecond speech stops is what makes a clip end abruptly.
+# Breathing room, taken from the silence either side of a beat.
 PAD_IN = 0.18
 PAD_OUT = 0.38
-MIN_GAP_KEEP = 0.06  # never eat a neighbouring sentence
+MIN_GAP_KEEP = 0.06
 
-# If two chosen blocks sit closer together than this, bridge them into one
-# continuous run instead of cutting.
-#
-# A cut only earns its discontinuity if it skips enough material to justify it.
-# Skipping twenty seconds lands on a different shot and reads as a deliberate
-# scene change. Skipping two lands on the same person in the same pose in the
-# same room -- a jump cut, which the eye reads as a glitch rather than an edit.
-# This was exactly the regression that made the TwelveLabs version feel cut
-# again: it picked blocks 1.9s apart where the previous plan jumped 21s.
-#
-# Bridging costs a couple of seconds of runtime and removes the cut entirely.
-# That is always the better trade at this scale.
+# Skipping only a second or two lands on the same person in the same pose and
+# reads as a glitch. Bridge it instead: a little longer, no cut at all.
 BRIDGE_MAX_GAP = 3.0
 
-# One named field per strategy rather than an array.
-#
-# Strict structured output guarantees every `required` property is present, but
-# it cannot enforce an array length -- there is no minItems. Asked for "an
-# array of exactly three", gpt-4o-mini reliably returned one, and telling it so
-# on retry did not fix it. Three named, required fields make the correct shape
-# the only representable shape, so the count stops being something we validate
-# and start being something that cannot go wrong.
-KEY_TO_STRATEGY = {
-    "hook_first": "Hook-first",
-    "problem_solution": "Problem → Solution",
-    "social_proof": "Social proof",
-}
+# Distinctness. Openings closer than this in the source are the same opening
+# to a viewer. That is the rule that matters -- it is exactly what the client
+# caught: two cuts whose first five seconds matched. Scaled to the ad: ten
+# seconds on a 90s ad is fair, on a 43s ad with five moments it leaves no
+# legal combination.
+def opening_gap_for(duration: float) -> float:
+    return max(6.0, min(10.0, duration / 6.0))
 
-_VARIATION = {
-    "type": "object",
-    "properties": {
-        "hook": {
-            "type": "string",
-            "description": "Under 8 words. How you would describe the opening.",
-        },
-        "reframe": {
-            "type": "string",
-            "enum": ["crop", "blur"],
-            "description": (
-                "crop when one subject is centred; blur when the frame has edge "
-                "text, packaging or wide action worth keeping."
-            ),
-        },
-        "picks": {
-            "type": "array",
-            "description": "Blocks of sentences, in the order they should play.",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "from_beat": {"type": "integer"},
-                    "to_beat": {
-                        "type": "integer",
-                        "description": "Inclusive. Same as from_beat for one.",
+# Beyond the opening, cuts may share at most this many moments. A shared
+# product shot in the middle is normal -- every real variation of an ad shows
+# the product -- so a time-based overlap ratio was flagging every pair. Two
+# shared moments out of two or three, though, is the same cut twice.
+MAX_SHARED_MOMENTS = 1
+
+SCHEMA = {
+    "name": "storyline",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "title": {
+                "type": "string",
+                "description": "Six words or fewer. The idea of this cut, as a label.",
+            },
+            "logline": {
+                "type": "string",
+                "description": "One sentence: what a viewer experiences, start to finish.",
+            },
+            "reframe": {
+                "type": "string",
+                "enum": ["crop", "blur"],
+                "description": (
+                    "crop when one subject is centred; blur when the frame has "
+                    "edge text, packaging or wide action worth keeping."
+                ),
+            },
+            "sequence": {
+                "type": "array",
+                "description": "1-3 moments, in the order they play.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "moment": {"type": "string", "description": "A moment id, like m3."},
+                        "why": {"type": "string"},
                     },
-                    "why": {"type": "string"},
+                    "required": ["moment", "why"],
+                    "additionalProperties": False,
                 },
-                "required": ["from_beat", "to_beat", "why"],
-                "additionalProperties": False,
             },
         },
+        "required": ["title", "logline", "reframe", "sequence"],
+        "additionalProperties": False,
     },
-    "required": ["hook", "reframe", "picks"],
-    "additionalProperties": False,
 }
 
-# One variation per call.
-#
-# Asking for all three at once means asking the model to hold a global
-# constraint -- "these must not overlap" -- across three outputs it writes in a
-# single pass. gpt-4o-mini cannot, and repeated repair rounds naming the
-# offending variation did not move it: it kept opening two variations on the
-# strongest beat, because that beat genuinely is the strongest. Generating them
-# in sequence, each told which openings are already taken, removes the need to
-# hold the constraint at all. Three small calls cost the same as one big one.
-SCHEMA = {"name": "variation", "strict": True, "schema": dict(_VARIATION)}
+SYSTEM = f"""You are a senior direct-response video editor. A strategist has \
+broken a long ad into numbered MOMENTS -- narrative units with timings, a \
+role, an opener-strength rating, and a note on what is on screen. You build \
+ONE short vertical micro-ad by choosing and ordering moments.
 
-SYSTEM = """You are a senior direct-response video editor who cuts vertical \
-social ads for a living. You are given a long ad broken into numbered beats. \
-A beat is a clause or a whole sentence. You choose which beats become three \
-short vertical micro-ads.
-
-You select beats by number. You never invent timestamps.
+You choose moments by id. You never invent timestamps.
 
 Rules you never break:
 
-- Each variation runs 12-22 seconds total. Shorter is better. Never exceed 25.
-- Use 1-3 blocks. Two is usually right. A block may span consecutive beats \
-using from_beat and to_beat when they belong together.
-- Beat durations are given to you. Add them up. If the beats are short, widen \
-your blocks with to_beat rather than adding more blocks -- a run of six short \
-beats is one block, not six. Hitting the length target matters more than \
-keeping blocks narrow.
-- List your blocks in the order they appear in the source, earliest first. \
-The clip plays them in that order.
-- A block must end on a beat that completes a sentence, so the clip never \
-stops mid-thought. Beats marked "(mid-sentence)" are fine to start on or pass \
-through, but never to end on.
-- The opening decides everything. Lead with the single most arresting claim, \
-statistic or question available, never a preamble or a greeting. The strongest \
-hook is often the final clause of a long sentence rather than its start.
-- The three variations must feel genuinely different. Draw them from different \
-parts of the ad. Never open two variations on the same beat.
-- Never pick two blocks that sit close together in the source. Skipping only a \
-second or two puts the same person in the same pose either side of the cut, \
-which looks like a glitch rather than an edit. Either take the material in \
-between as one block, or jump somewhere clearly different.
+- The clip runs {IDEAL_RANGE[0]:g}-{IDEAL_RANGE[1]:g} seconds. Add the moment \
+durations up. Never exceed 25.
+- Use 1-3 moments. Two is usually right.
+- Moments play in source order, earliest first. List them that way.
+- The opening decides everything. Open on a moment with high opener strength \
+that fits the angle. Never open on filler or on mid-way context.
+- Never choose two moments that sit within a few seconds of each other unless \
+they are consecutive -- a small skip between the same shot looks like a \
+glitch. Either take them together or jump somewhere clearly different.
 - End on the product, the offer, or a line that lands. Never trail off.
-- A viewer sees only what you pick, with no other context. Each variation must \
-make complete sense standing alone.
+- The viewer sees only what you pick. The clip must make complete sense \
+standing alone.
+- When told which openings other cuts already use, open somewhere genuinely \
+different -- a different part of the ad, a different idea -- so that three \
+people watching the three cuts would describe three different ads.
 
-The three strategies:
+The angles:
 
-- "Hook-first" -- open on the most scroll-stopping claim, then pay it off fast.
-- "Problem → Solution" -- name the viewer's pain, then present the product as \
-the answer.
-- "Social proof" -- lead with credibility: ingredients, science, results, \
-authority.
+{ANGLE_GUIDE}
 
 For "reframe": choose "crop" when the shot is one centred subject, since it \
 fills the frame. Choose "blur" when losing the sides would cut text, product \
@@ -183,261 +158,361 @@ class PlanResult:
     repaired: bool
 
 
-def plan_errors(edl: EDL, raw: dict, source_duration: float) -> list[str]:
-    """EDL validity plus the plan-level rules a JSON schema can't express.
+# --------------------------------------------------------------------------- #
+# Prompt
+# --------------------------------------------------------------------------- #
 
-    Strict structured output guarantees the *shape* of the response, not that
-    there are three of them or that they differ meaningfully. Those checks live
-    here, and their messages are written to be read by the model on retry.
+
+def _prompt(
+    source: SourceInfo,
+    brief: Brief,
+    angle: str,
+    taken: list[dict],
+    repair: str,
+) -> str:
+    out = f"""Source ad: {source.path.name}  ({source.duration:.1f}s)
+Product: {brief.product}
+Audience: {brief.audience}
+Format: {brief.format}
+Arc: {brief.arc}
+
+Moments:
+
+{brief.menu()}
+
+Build ONE storyline using the "{angle}" angle."""
+
+    if taken:
+        used_parents = {p for t in taken for p in t["parents"]}
+        unused = [m.id for m in brief.moments if m.parent not in used_parents and m.role != "filler"]
+        lines = "\n".join(
+            f"- {t['angle']} opens on {t['opening']} ({t['opening_start']:.0f}s in) "
+            f"and uses {', '.join(t['moments'])}"
+            for t in taken
+        )
+        # A positive list of what to use works far better than a list of what
+        # to avoid -- "choose from these" is an easy instruction, "don't overlap
+        # with those" is a constraint the model kept failing to satisfy.
+        out += (
+            f"\n\nCuts already made:\n{lines}\n\n"
+            f"Build this cut mainly from moments no other cut has used: "
+            f"{', '.join(unused) if unused else 'none left -- do your best'}. "
+            f"You may include at most ONE moment another cut already used. Your "
+            f"opening must be at least {opening_gap_for(source.duration):.0f} seconds "
+            f"away from the openings above. Three people watching the three cuts "
+            f"should describe three different ads."
+        )
+    if repair:
+        out += (
+            "\n\nYour previous attempt was rejected for these reasons. Fix them "
+            "precisely and keep everything else:\n" + repair
+        )
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# Realisation (deterministic)
+# --------------------------------------------------------------------------- #
+
+
+def _padded_span(transcript: Transcript, i: int, j: int) -> tuple[float, float]:
+    beats = transcript.beats
+    i = max(0, min(i, len(beats) - 1))
+    j = max(i, min(j, len(beats) - 1))
+    prev_end = beats[i - 1].end if i > 0 else 0.0
+    next_start = beats[j + 1].start if j + 1 < len(beats) else transcript.duration
+    start = max(prev_end + MIN_GAP_KEEP, beats[i].start - PAD_IN, 0.0)
+    end = min(next_start - MIN_GAP_KEEP, beats[j].end + PAD_OUT, transcript.duration)
+    return start, max(start + 0.1, end)
+
+
+def _bridge(segments: list[Segment]) -> tuple[list[Segment], int]:
+    merged: list[Segment] = []
+    bridged = 0
+    for s in sorted(segments, key=lambda s: s.start):
+        if merged and s.start - merged[-1].end < BRIDGE_MAX_GAP:
+            if s.start - merged[-1].end > 0.25:
+                bridged += 1
+            merged[-1] = Segment(merged[-1].start, max(merged[-1].end, s.end))
+        else:
+            merged.append(s)
+    return merged, bridged
+
+
+def _grow_to_minimum(
+    segments: list[Segment], transcript: Transcript, target: float = IDEAL_RANGE[0]
+) -> tuple[list[Segment], float]:
+    """Extend blocks forward until the clip is a watchable length.
+
+    A backstop, not a strategy: the model chooses the angle, this only stops a
+    7-second clip reaching the render. Grows toward the ideal floor and stops
+    at the first sentence break past it.
+
+    Tries the last block first, then earlier ones. A cut that ends on the ad's
+    final line has nothing after it to grow into -- the previous block does.
     """
-    errors = validate(edl, source_duration)
+    total = lambda: sum(s.duration for s in segments)  # noqa: E731
+    if not segments or total() >= target:
+        return segments, 0.0
 
-    # Three variations that open on the same beat are three copies, not three
-    # angles. This is the check that actually forces variety -- and the message
-    # names the offender, because "they overlap" is not something a model can
-    # act on, whereas "change problem_solution" is.
-    opened_by: dict[int, list[str]] = {}
-    for key in KEY_TO_STRATEGY:
-        v = raw.get(key)
-        if isinstance(v, dict) and v.get("picks"):
-            opened_by.setdefault(int(v["picks"][0].get("from_beat", -1)), []).append(key)
+    grown = 0.0
+    for idx in range(len(segments) - 1, -1, -1):
+        seg = segments[idx]
+        # May grow until just before the next block, or the end of the ad.
+        room = segments[idx + 1].start - MIN_GAP_KEEP if idx + 1 < len(segments) else transcript.duration
+        before = seg.end
+        for beat in transcript.beats:
+            # Compare ENDS. The previous beat's PAD_OUT pushes seg.end just past
+            # the next beat's start; a start-based check skipped exactly the
+            # sentence-ending beats that should have stopped growth, and one
+            # clip ran on to 46 seconds.
+            if beat.end <= seg.end + 0.05:
+                continue
+            end = min(beat.end + PAD_OUT, room)
+            if end <= seg.end:
+                break
+            segments[idx] = seg = Segment(seg.start, end)
+            if total() >= target and beat.ends_sentence:
+                break
+        grown += seg.end - before
+        if total() >= target:
+            break
+    return segments, grown
 
-    for beat, keys in sorted(opened_by.items()):
-        if len(keys) > 1:
-            keep, *change = keys
+
+def _captions(segments: list[Segment], transcript: Transcript) -> list[Caption]:
+    out: list[Caption] = []
+
+    def flush(buf: list) -> None:
+        if buf and buf[-1].end - buf[0].start > 0.05:
+            out.append(Caption(buf[0].start, buf[-1].end, " ".join(x.text for x in buf)))
+
+    for seg in segments:
+        buf: list = []
+        for w in transcript.words:
+            if w.start < seg.start or w.end > seg.end:
+                continue
+            buf.append(w)
+            if len(buf) >= 4 or len(" ".join(x.text for x in buf)) >= 26:
+                flush(buf)
+                buf = []
+        flush(buf)
+    return out
+
+
+def _overlap_ratio(a: list[Segment], b: list[Segment]) -> float:
+    """Shared footage as a fraction of the shorter clip.
+
+    Using the shorter clip as the denominator is deliberate: a 12s clip that
+    sits entirely inside a 22s clip is the same clip to a viewer, and this
+    reports 1.0 for it where a union-based measure would say 0.55.
+    """
+    inter = 0.0
+    for x in a:
+        for y in b:
+            inter += max(0.0, min(x.end, y.end) - max(x.start, y.start))
+    shorter = min(sum(s.duration for s in a), sum(s.duration for s in b))
+    return inter / shorter if shorter > 0 else 0.0
+
+
+def _realise(
+    raw: dict,
+    angle: str,
+    brief: Brief,
+    transcript: Transcript,
+) -> tuple[Variation, dict]:
+    """Model output for one storyline -> a renderable Variation."""
+    segments: list[Segment] = []
+    used: list[str] = []
+
+    # Always play in source order, whatever order the model listed them. A
+    # cold open is a deliberate future feature; done by accident it reverses
+    # narration mid-ad. Sorting here also means the guardrails see the true
+    # opening rather than whichever moment the model happened to list first.
+    steps = sorted(
+        (s for s in raw.get("sequence", []) if brief.moment(str(s.get("moment", ""))) is not None),
+        key=lambda s: brief.moment(str(s["moment"])).start,
+    )
+    for step in steps:
+        m = brief.moment(str(step["moment"]))
+        start, end = _padded_span(transcript, m.from_beat, m.to_beat)
+        segments.append(Segment(start, end))
+        used.append(m.id)
+
+    segments, bridged = _bridge(segments)
+    segments, grown = _grow_to_minimum(segments, transcript)
+    if grown:
+        # Growth may have closed the gap to the next block; bridge again so we
+        # never cut and immediately rejoin.
+        segments, more = _bridge(segments)
+        bridged += more
+
+    slug = angle.lower().replace(" → ", "-").replace(" ", "-")
+    variation = Variation(
+        id=slug,
+        strategy=angle,
+        hook=raw.get("title", "").strip(),
+        segments=segments,
+        captions=_captions(segments, transcript),
+    )
+    reasoning = {
+        "strategy": angle,
+        "title": raw.get("title", ""),
+        "logline": raw.get("logline", ""),
+        "reframe": raw.get("reframe", "crop"),
+        "moments": [
+            {"id": m.id, "label": m.label, "why": s.get("why", "")}
+            for s in steps
+            if (m := brief.moment(str(s["moment"]))) is not None
+        ],
+        "used": used,
+        "picks": [
+            {"start": round(s.start, 2), "end": round(s.end, 2)} for s in segments
+        ],
+        "bridged": bridged,
+        "grown_s": round(grown, 1),
+        "cuts": max(0, len(segments) - 1),
+    }
+    return variation, reasoning
+
+
+# --------------------------------------------------------------------------- #
+# Guardrails
+# --------------------------------------------------------------------------- #
+
+
+def _storyline_errors(
+    variation: Variation,
+    raw: dict,
+    brief: Brief,
+    source_duration: float,
+    taken: list[dict],
+    previous: list[Variation],
+) -> list[str]:
+    errors = validate(EDL(source="", variations=[variation]), source_duration)
+
+    seq = raw.get("sequence") or []
+    chosen = sorted(
+        (m for s in seq if (m := brief.moment(str(s.get("moment")))) is not None),
+        key=lambda m: m.start,
+    )
+    if not chosen:
+        errors.append("The sequence must contain valid moment ids.")
+        return errors
+    opening = chosen[0]
+
+    # Length, judged on what the model actually chose rather than on what the
+    # backstop grew it to. The EDL minimum is 8s, but 8s is not a micro-ad
+    # anyone would run; a 9s plan passed validation and never got repaired.
+    planned = sum(m.duration for m in chosen)
+    if planned < IDEAL_RANGE[0]:
+        errors.append(
+            f"Your moments add up to {planned:.1f}s; the cut must be at least "
+            f"{IDEAL_RANGE[0]:g}s. Add a moment, or choose longer ones."
+        )
+
+    if opening.role == "filler":
+        errors.append(f"{opening.id} is filler; never open on filler.")
+
+    gap = opening_gap_for(source_duration)
+    for t in taken:
+        if t["opening"] == opening.id or t["opening_parent"] == opening.parent:
             errors.append(
-                f"{' and '.join(keys)} both open on beat {beat}. Keep {keep} as it "
-                f"is and rewrite {', '.join(change)} to open on a different beat "
-                f"from a different part of the ad."
+                f"{opening.id} is the same shot the {t['angle']} cut opens on. "
+                f"Open on a different moment."
+            )
+        elif abs(opening.start - t["opening_start"]) < gap:
+            errors.append(
+                f"{opening.id} starts at {opening.start:.0f}s, only "
+                f"{abs(opening.start - t['opening_start']):.0f}s from the {t['angle']} "
+                f"cut's opening at {t['opening_start']:.0f}s. Openings must be at least "
+                f"{gap:.0f}s apart -- pick an opening from a different part of the ad."
+            )
+
+    # Shared footage, counted by parent so both halves of a split moment
+    # register as the one shot they are.
+    mine = {m.parent: m.id for m in chosen}
+    for t in taken:
+        shared = sorted(mine[p] for p in mine if p in t["parents"])
+        if len(shared) > MAX_SHARED_MOMENTS:
+            errors.append(
+                f"This cut shares {', '.join(shared)} with the {t['angle']} cut "
+                f"(the same shots). At most one may be shared; swap the others "
+                f"for different parts of the ad."
             )
 
     return errors
 
 
-def _beat_menu(transcript: Transcript) -> str:
-    return "\n".join(
-        f"{i}. [{b.end - b.start:.1f}s]"
-        f"{'' if b.ends_sentence else ' (mid-sentence)'} {b.text}"
-        for i, b in enumerate(transcript.beats)
-    )
+def _enforce_opening(raw: dict, brief: Brief, taken: list[dict], source_duration: float) -> tuple[dict, str]:
+    """Deterministic fallback: if the opening is still too close to another
+    cut's after repair, substitute the strongest unused moment that isn't.
 
-
-def _user_prompt(
-    source: SourceInfo,
-    transcript: Transcript,
-    strategy: str,
-    taken: dict[int, str],
-    repair: str = "",
-    visual: str = "",
-) -> str:
-    seen = ""
-    if visual:
-        seen = (
-            f"\n\nWhat is visible on screen (from video analysis):\n\n{visual}\n\n"
-            "Favour beats whose visuals are strong, and let this decide the "
-            "reframe mode."
-        )
-
-    total_beats = len(transcript.beats)
-    mean = (
-        sum(b.end - b.start for b in transcript.beats) / total_beats
-        if total_beats
-        else 0
-    )
-    # Spelling out the arithmetic matters on ads with short, fragmented beats,
-    # where the model otherwise picks two 1-second beats and calls it a clip.
-    need = f"{IDEAL_RANGE[0]:g}-{IDEAL_RANGE[1]:g}"
-    sizing = (
-        f"\n\nThese beats average {mean:.1f}s, so reaching {need}s takes roughly "
-        f"{max(2, round(IDEAL_RANGE[0] / mean)) if mean else 6} beats in total. "
-        f"Use to_beat to span runs of them."
-    )
-
-    base = f"""Source ad: {source.path.name}
-Length: {source.duration:.1f} seconds
-
-Beats you may choose from (a beat is a clause or a sentence):
-
-{_beat_menu(transcript)}{sizing}{seen}
-
-Build ONE variation using the "{strategy}" strategy."""
-
-    if taken:
-        listed = ", ".join(f"beat {b} (used by {s})" for b, s in sorted(taken.items()))
-        base += (
-            f"\n\nThese openings are already taken: {listed}. "
-            f"You must open on a different beat, drawn from a different part of "
-            f"the ad, so this variation feels genuinely distinct."
-        )
-    if repair:
-        base += (
-            "\n\nYour previous attempt was rejected for these reasons. Fix them "
-            "precisely and keep everything else:\n" + repair
-        )
-    return base
-
-
-def _padded_span(transcript: Transcript, i: int, j: int) -> tuple[float, float]:
-    """Time span for sentences i..j, padded into the surrounding silence."""
-    sents = transcript.beats
-    i = max(0, min(i, len(sents) - 1))
-    j = max(i, min(j, len(sents) - 1))
-
-    start = sents[i].start
-    end = sents[j].end
-
-    prev_end = sents[i - 1].end if i > 0 else 0.0
-    next_start = sents[j + 1].start if j + 1 < len(sents) else transcript.duration
-
-    start = max(prev_end + MIN_GAP_KEEP, start - PAD_IN, 0.0)
-    end = min(next_start - MIN_GAP_KEEP, end + PAD_OUT, transcript.duration)
-    return start, max(start + 0.1, end)
-
-
-def _grow_to_minimum(
-    segments: list[Segment], transcript: Transcript
-) -> tuple[list[Segment], float]:
-    """Extend the last block forward until the clip clears the minimum length.
-
-    A deterministic backstop behind the model. On ads with short, fragmented
-    beats it kept returning 5-second clips and would not correct itself even
-    when the repair message named the number. Rather than ship something
-    unusable or fail the job, we walk the last block forward through the
-    following beats until it is long enough. The model still chooses the angle;
-    this only guarantees the result is a watchable length.
+    The model kept choosing openings in the same ten seconds because that is
+    where the product introduction lives and every angle wants it. Telling it
+    so three times did not move it. The rest of the storyline is kept; only
+    the opening changes, and the report says so.
     """
-    if not segments:
-        return segments, 0.0
+    seq = raw.get("sequence") or []
+    chosen = sorted(
+        (m for s in seq if (m := brief.moment(str(s.get("moment")))) is not None),
+        key=lambda m: m.start,
+    )
+    if not chosen or not taken:
+        return raw, ""
 
-    total = sum(s.duration for s in segments)
-    if total >= MIN_OUTPUT_SECONDS:
-        return segments, 0.0
+    gap = opening_gap_for(source_duration)
+    opening = chosen[0]
 
-    last = segments[-1]
-    grown_from = last.end
-
-    for beat in transcript.beats:
-        if beat.start < last.end - 0.05:
-            continue  # already covered
-        candidate_end = min(beat.end + PAD_OUT, transcript.duration)
-        if candidate_end <= last.end:
-            continue
-        segments[-1] = Segment(last.start, candidate_end)
-        last = segments[-1]
-        total = sum(s.duration for s in segments)
-        # Stop at the first beat that clears the bar and completes a thought.
-        if total >= MIN_OUTPUT_SECONDS and beat.ends_sentence:
-            break
-
-    return segments, max(0.0, segments[-1].end - grown_from)
-
-
-def _to_edl(data: dict, source: SourceInfo, transcript: Transcript) -> tuple[EDL, dict]:
-    variations: list[Variation] = []
-    reasoning: dict = {"variations": []}
-
-    for key, strategy in KEY_TO_STRATEGY.items():
-        v = data.get(key)
-        if not isinstance(v, dict):
-            continue
-        segments: list[Segment] = []
-        picked: list[dict] = []
-
-        for pick in v.get("picks", []):
-            i = int(pick.get("from_beat", 0))
-            j = int(pick.get("to_beat", i))
-            if i > j:
-                i, j = j, i
-            start, end = _padded_span(transcript, i, j)
-            segments.append(Segment(start, end))
-            picked.append(
-                {
-                    "beats": f"{i}" if i == j else f"{i}-{j}",
-                    "start": round(start, 2),
-                    "end": round(end, 2),
-                    "why": pick.get("why", ""),
-                }
-            )
-
-        segments.sort(key=lambda s: s.start)
-
-        # Bridge blocks that sit close together rather than cutting between
-        # them -- see BRIDGE_MAX_GAP. Also catches blocks that merely touch
-        # after padding, so we never cut and immediately rejoin the same moment.
-        merged: list[Segment] = []
-        bridged = 0
-        for s in segments:
-            if merged and s.start - merged[-1].end < BRIDGE_MAX_GAP:
-                if s.start - merged[-1].end > 0.25:
-                    bridged += 1
-                merged[-1] = Segment(merged[-1].start, max(merged[-1].end, s.end))
-            else:
-                merged.append(s)
-        segments = merged
-        segments, grown = _grow_to_minimum(segments, transcript)
-
-        captions: list[Caption] = []
-
-        def flush(buf: list) -> None:
-            # Whisper occasionally emits a word whose start equals its end;
-            # a trailing one of those would otherwise become a zero-length
-            # caption and fail validation.
-            if buf and buf[-1].end - buf[0].start > 0.05:
-                captions.append(
-                    Caption(buf[0].start, buf[-1].end, " ".join(x.text for x in buf))
-                )
-
-        for seg in segments:
-            buf: list = []
-            for w in transcript.words:
-                if w.start < seg.start or w.end > seg.end:
-                    continue
-                buf.append(w)
-                if len(buf) >= 4 or len(" ".join(x.text for x in buf)) >= 26:
-                    flush(buf)
-                    buf = []
-            flush(buf)
-
-        slug = strategy.lower().replace(" → ", "-").replace(" ", "-")
-        variations.append(
-            Variation(
-                id=slug,
-                strategy=strategy,
-                hook=v.get("hook", ""),
-                segments=segments,
-                captions=captions,
-            )
-        )
-        reasoning["variations"].append(
-            {
-                "strategy": strategy,
-                "hook": v.get("hook", ""),
-                "reframe": v.get("reframe", "crop"),
-                "picks": picked,
-                "bridged": bridged,
-                "grown_s": round(grown, 1),
-                "cuts": max(0, len(segments) - 1),
-            }
+    def clashes(m) -> bool:
+        return any(
+            t["opening_parent"] == m.parent or abs(m.start - t["opening_start"]) < gap
+            for t in taken
         )
 
-    return EDL(source=str(source.path), variations=variations), reasoning
+    if not clashes(opening):
+        return raw, ""
+
+    used_parents = {p for t in taken for p in t["parents"]}
+    after = chosen[1].start if len(chosen) > 1 else source_duration
+    candidates = [
+        m for m in brief.moments
+        if m.role != "filler"
+        and m.parent not in used_parents
+        and m.parent != opening.parent
+        and not clashes(m)
+        and m.start < after
+    ]
+    if not candidates:
+        return raw, ""
+
+    best = max(candidates, key=lambda m: (m.strength, -m.start))
+    new_seq = [
+        {"moment": best.id, "why": f"Opening substituted for distinctness (was {opening.id})."}
+    ] + [s for s in seq if str(s.get("moment")) != opening.id]
+    return {**raw, "sequence": new_seq}, f"opening {opening.id} -> {best.id}"
+
+
+# --------------------------------------------------------------------------- #
+# Entry point
+# --------------------------------------------------------------------------- #
 
 
 def make_plan(
     source: SourceInfo,
     transcript: Transcript,
+    brief: Brief,
     api_key: str,
     *,
     force: bool = False,
-    visual: str = "",
 ) -> PlanResult:
     fingerprint = file_fingerprint(source.path)
+    variant = CACHE_VARIANT + ("-v" if any(m.shown for m in brief.moments) else "")
 
     if not force:
-        cache_key = CACHE_VARIANT + ("-v" if visual else "")
-        cached = cache_read(fingerprint, "plan", cache_key)
+        cached = cache_read(fingerprint, "plan", variant)
         if cached:
-            edl, reasoning = _to_edl(cached["raw"], source, transcript)
+            edl, reasoning = _assemble(cached["raw"], brief, transcript, source)
             return PlanResult(
                 edl=edl,
                 reasoning=reasoning,
@@ -449,11 +524,8 @@ def make_plan(
                 repaired=cached.get("repaired", False),
             )
 
-    if not transcript.beats:
-        raise SystemExit(
-            "No beats reconstructed from the transcript; cannot plan. "
-            "Re-run with --retranscribe."
-        )
+    if not brief.moments or not brief.angles:
+        raise SystemExit("The brief has no moments or angles; cannot plan.")
 
     url = "https://api.openai.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}"}
@@ -461,12 +533,14 @@ def make_plan(
     cost = 0.0
     tin = tout = 0
     repaired = False
-    raw: dict = {}
-    taken: dict[int, str] = {}
+    raw: dict[str, dict] = {}
+    taken: list[dict] = []
+    previous: list[Variation] = []
 
-    for key, strategy in KEY_TO_STRATEGY.items():
+    for angle in brief.angles:
         repair = ""
         best: dict | None = None
+        best_var: Variation | None = None
 
         for _ in range(3):
             resp = post_json(
@@ -476,12 +550,7 @@ def make_plan(
                     "model": MODEL,
                     "messages": [
                         {"role": "system", "content": SYSTEM},
-                        {
-                            "role": "user",
-                            "content": _user_prompt(
-                                source, transcript, strategy, taken, repair, visual
-                            ),
-                        },
+                        {"role": "user", "content": _prompt(source, brief, angle, taken, repair)},
                     ],
                     "response_format": {"type": "json_schema", "json_schema": SCHEMA},
                     "temperature": 0.8,
@@ -490,43 +559,50 @@ def make_plan(
             usage = resp.get("usage", {})
             tin += usage.get("prompt_tokens", 0)
             tout += usage.get("completion_tokens", 0)
-            cost += usage.get("prompt_tokens", 0) * PRICE_IN
-            cost += usage.get("completion_tokens", 0) * PRICE_OUT
+            cost += usage.get("prompt_tokens", 0) * PRICE_IN + usage.get("completion_tokens", 0) * PRICE_OUT
 
             candidate = json.loads(resp["choices"][0]["message"]["content"])
-            best = candidate
+            var, _ = _realise(candidate, angle, brief, transcript)
+            best, best_var = candidate, var
 
-            probe_edl, _ = _to_edl({key: candidate}, source, transcript)
-            errors = validate(probe_edl, source.duration)
-            opening = (
-                int(candidate["picks"][0].get("from_beat", -1))
-                if candidate.get("picks")
-                else -1
-            )
-            if opening in taken:
-                errors.append(
-                    f"Beat {opening} already opens {taken[opening]}. Open somewhere "
-                    f"else, from a different part of the ad."
-                )
+            errors = _storyline_errors(var, candidate, brief, source.duration, taken, previous)
             if not errors:
                 break
             repair = "\n".join(f"- {e}" for e in errors)
             repaired = True
 
-        if best is not None:
-            raw[key] = best
-            if best.get("picks"):
-                taken[int(best["picks"][0].get("from_beat", -1))] = key
+        if best is not None and best_var is not None:
+            best, swapped = _enforce_opening(best, brief, taken, source.duration)
+            if swapped:
+                best_var, _ = _realise(best, angle, brief, transcript)
+                repaired = True
+            raw[angle] = best
+            chosen = sorted(
+                (m for s in best.get("sequence") or [] if (m := brief.moment(str(s.get("moment")))) is not None),
+                key=lambda m: m.start,
+            )
+            opening = chosen[0] if chosen else None
+            taken.append(
+                {
+                    "angle": angle,
+                    "opening": opening.id if opening else "?",
+                    "opening_start": opening.start if opening else 0.0,
+                    "opening_parent": opening.parent if opening else -1,
+                    "moments": [m.id for m in chosen],
+                    "parents": [m.parent for m in chosen],
+                }
+            )
+            previous.append(best_var)
 
     elapsed = time.perf_counter() - started
     cache_write(
         fingerprint,
         "plan",
         {"raw": raw, "tokens_in": tin, "tokens_out": tout, "repaired": repaired},
-        CACHE_VARIANT + ("-v" if visual else ""),
+        variant,
     )
 
-    edl, reasoning = _to_edl(raw, source, transcript)
+    edl, reasoning = _assemble(raw, brief, transcript, source)
     return PlanResult(
         edl=edl,
         reasoning=reasoning,
@@ -537,3 +613,43 @@ def make_plan(
         seconds_taken=elapsed,
         repaired=repaired,
     )
+
+
+def _assemble(
+    raw: dict[str, dict], brief: Brief, transcript: Transcript, source: SourceInfo
+) -> tuple[EDL, dict]:
+    variations: list[Variation] = []
+    reasoning: dict = {"variations": [], "brief": {
+        "product": brief.product,
+        "audience": brief.audience,
+        "format": brief.format,
+        "arc": brief.arc,
+        "angles": brief.angles,
+        "angle_reasoning": brief.angle_reasoning,
+        "moments": [
+            {"id": m.id, "label": m.label, "start": round(m.start, 1), "end": round(m.end, 1),
+             "role": m.role, "strength": m.strength, "shown": m.shown}
+            for m in brief.moments
+        ],
+    }}
+    for angle in brief.angles:
+        if angle not in raw:
+            continue
+        var, why = _realise(raw[angle], angle, brief, transcript)
+        variations.append(var)
+        reasoning["variations"].append(why)
+
+    # Report pairwise footage overlap so distinctness is visible in the output.
+    pairs = []
+    for i in range(len(variations)):
+        for j in range(i + 1, len(variations)):
+            pairs.append(
+                {
+                    "a": variations[i].strategy,
+                    "b": variations[j].strategy,
+                    "overlap": round(_overlap_ratio(variations[i].segments, variations[j].segments), 2),
+                }
+            )
+    reasoning["overlap"] = pairs
+
+    return EDL(source=str(source.path), variations=variations), reasoning

@@ -1,263 +1,138 @@
-"""The pipeline spike, end to end.
+"""Command-line wrapper over pipeline.run().
 
     python spike/run_pipeline.py <video>
-    python spike/run_pipeline.py <video> --replan     # new plan, cached transcript
+    python spike/run_pipeline.py <video> --visual off
+    python spike/run_pipeline.py <video> --replan          # new storylines
+    python spike/run_pipeline.py <video> --rebrief         # new brief + storylines
+    python spike/run_pipeline.py <video> --captions on
 
-Transcribe -> plan -> render, with measured cost at every step. The output is
-three vertical micro-ads plus a report that replaces the estimated $0.15 per
-video with a real number.
-
-Everything expensive is cached by file fingerprint, so iterating on the prompt
-costs a fraction of a cent per pass instead of re-transcribing each time.
+Everything expensive is cached by file fingerprint, so iterating on prompts
+costs a fraction of a cent per pass.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
-from analyze import analyze
-from config import CACHE_DIR, load_env, require
-from edl import validate, warnings
-from ffmpeg_tools import FFmpegMissing, detect_content_crop, fmt_duration, probe
-from net import ApiError
-from plan import make_plan
-from render import render_variation
-from transcribe import transcribe
+from pipeline import Options, run
 
 for _s in (sys.stdout, sys.stderr):
     if hasattr(_s, "reconfigure"):
         _s.reconfigure(encoding="utf-8", errors="replace")
 
+_LABEL = {
+    "probing": "SOURCE",
+    "analyzing": "STEP 2  VISUAL ANALYSIS  (TwelveLabs)",
+    "transcribing": "STEP 3  TRANSCRIBE  (whisper-1)",
+    "understanding": "STEP 4a UNDERSTAND  (gpt-4o-mini, the brief)",
+    "planning": "STEP 4b STORYLINES  (gpt-4o-mini, one per angle)",
+    "rendering": "STEP 1  RENDER",
+}
+
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="AdMultiply pipeline spike.")
+    ap = argparse.ArgumentParser(description="AdMultiply pipeline.")
     ap.add_argument("video", type=Path)
     ap.add_argument("--out", type=Path, default=Path("spike/output"))
-    ap.add_argument("--replan", action="store_true", help="re-run the planner")
-    ap.add_argument("--retranscribe", action="store_true")
+    ap.add_argument("--visual", choices=["on", "off"], default="on")
+    ap.add_argument("--captions", choices=["on", "off"], default="off")
     ap.add_argument("--watermark", nargs="?", const="AdMultiply", default=None)
-    ap.add_argument(
-        "--fit",
-        choices=["auto", "crop", "blur"],
-        default="auto",
-        help="auto lets the model choose per variation",
-    )
-    # Most real ad creative already carries burned-in captions, so adding ours
-    # stacks a near-duplicate underneath and looks amateurish. Off by default
-    # until step 2, where TwelveLabs' scene analysis can detect on-screen text
-    # and make this call per video.
-    ap.add_argument(
-        "--visual",
-        choices=["on", "off"],
-        default="on",
-        help="TwelveLabs scene analysis (~90%% of per-video cost)",
-    )
-    ap.add_argument(
-        "--reanalyze", action="store_true", help="re-run TwelveLabs analysis"
-    )
-    ap.add_argument(
-        "--captions",
-        choices=["auto", "on", "off"],
-        default="auto",
-        help="burn our own captions (default off: sources usually have their own)",
-    )
+    ap.add_argument("--fit", choices=["auto", "crop", "blur"], default="auto")
+    ap.add_argument("--replan", action="store_true", help="re-run storylines")
+    ap.add_argument("--rebrief", action="store_true", help="re-run brief and storylines")
+    ap.add_argument("--retranscribe", action="store_true")
+    ap.add_argument("--reanalyze", action="store_true")
     args = ap.parse_args()
 
-    env = load_env()
-    openai_key = require("OPENAI_API_KEY", env)
+    seen_stage = {"value": ""}
 
-    # ---------------------------------------------------------------- probe
-    try:
-        source = probe(args.video)
-    except (FFmpegMissing, FileNotFoundError, ValueError) as e:
-        print(f"\n{e}\n", file=sys.stderr)
-        return 2
+    def on_progress(stage: str, detail: str) -> None:
+        if stage == "ready":
+            return
+        if stage != seen_stage["value"]:
+            seen_stage["value"] = stage
+            print("\n" + "=" * 66)
+            print(_LABEL.get(stage, stage.upper()))
+            print("=" * 66)
+        if detail:
+            print(f"  {detail}")
 
-    print("\n" + "=" * 66)
-    print("SOURCE")
-    print("=" * 66)
-    print(f"  {source.summary()}")
-    if source.width < 1080:
-        print(f"  note: {source.width}px wide, below the 1080 target - output is upscaled")
-
-    crop = detect_content_crop(source)
-    content_crop = crop if crop and crop.is_significant(source) else None
-    print(f"  bars: {content_crop.describe(source) if content_crop else 'none detected'}")
-
-    # -------------------------------------------------------------- visual
-    vis = None
-    if args.visual == "on" and env.get("TWELVELABS_API_KEY"):
-        print("\n" + "=" * 66)
-        print("STEP 2  VISUAL ANALYSIS  (TwelveLabs Pegasus)")
-        print("=" * 66)
-        try:
-            vis = analyze(source, env["TWELVELABS_API_KEY"], force=args.reanalyze)
-        except (ApiError, RuntimeError, TimeoutError) as e:
-            print(f"  skipped: {e}")
-            vis = None
-        if vis:
-            tag = "cached (free)" if vis.cached else f"{vis.seconds_taken:.0f}s, ${vis.cost_usd:.4f}"
-            print(f"  {tag}")
-            print(f"  on-screen text: {vis.on_screen_text}   framing: {vis.framing}")
-            for line in vis.raw.splitlines():
-                if line.strip().startswith("-"):
-                    print(f"  {line.strip()}")
-
-    # ----------------------------------------------------------- transcribe
-    print("\n" + "=" * 66)
-    print("STEP 3  TRANSCRIBE  (whisper-1, word-level timestamps)")
-    print("=" * 66)
-    try:
-        t = transcribe(source, openai_key, force=args.retranscribe)
-    except ApiError as e:
-        print(f"  failed: {e.message}", file=sys.stderr)
-        return 1
-    tag = "cached (free)" if t.cached else f"{t.seconds_taken:.1f}s, ${t.cost_usd:.5f}"
-    print(f"  {len(t.words)} words, {len(t.beats)} beats, {t.language}  -  {tag}")
-    for i, b in enumerate(t.beats):
-        mark = "" if b.ends_sentence else " ~"
-        print(f"    {i:2}.{mark} [{b.end - b.start:4.1f}s] {b.text[:72]}")
-
-    # ----------------------------------------------------------------- plan
-    print("\n" + "=" * 66)
-    print("STEP 4  EDIT PLAN  (gpt-4o-mini, structured output)")
-    print("=" * 66)
-    try:
-        p = make_plan(
-            source, t, openai_key,
-            force=args.replan,
-            visual=vis.for_prompt() if vis else "",
-        )
-    except ApiError as e:
-        print(f"  failed: {e.message}", file=sys.stderr)
-        return 1
-
-    tag = (
-        "cached (free)"
-        if p.cached
-        else f"{p.seconds_taken:.1f}s, ${p.cost_usd:.5f}, {p.tokens_in}+{p.tokens_out} tok"
+    opts = Options(
+        visual=args.visual == "on",
+        captions=args.captions == "on",
+        watermark=args.watermark,
+        fit=args.fit,
+        force_plan=args.replan or args.rebrief,
+        force_brief=args.rebrief,
+        force_transcript=args.retranscribe,
+        force_visual=args.reanalyze,
     )
-    print(f"  {tag}{'  [repaired after validation]' if p.repaired else ''}")
 
-    # Only block on what genuinely cannot render; duration is a preference
-    # the repair loop already tried to satisfy.
-    errors = validate(p.edl, source.duration, include_duration=False)
-    if errors:
-        print("\n  PLAN REJECTED even after repair:")
-        for e in errors:
-            print(f"    - {e}")
+    try:
+        r = run(args.video, args.out, opts, on_progress)
+    except (RuntimeError, FileNotFoundError, ValueError) as e:
+        print(f"\nFAILED: {e}\n", file=sys.stderr)
         return 1
-    for w in warnings(p.edl):
+
+    # ------------------------------------------------------------ summary
+    print("\n" + "=" * 66)
+    print("BRIEF")
+    print("=" * 66)
+    b = r.brief
+    print(f"  {b.product}  ->  {b.audience}")
+    print(f"  format: {b.format}   {'cached' if b.cached else f'${b.cost_usd:.5f}'}")
+    print(f"  arc: {b.arc}")
+    print(f"  angles: {', '.join(b.angles)}")
+    print(f"    ({b.angle_reasoning})")
+    print("\n  moments:")
+    for m in b.moments:
+        shown = f"   [{m.shown}]" if m.shown else ""
+        print(f"    {m.id:<3} {m.start:5.1f}-{m.end:5.1f}s  {m.role:<14} {m.strength}/5  {m.label}{shown}")
+
+    print("\n" + "=" * 66)
+    print("STORYLINES")
+    print("=" * 66)
+    p = r.plan
+    print(f"  {'cached' if p.cached else f'${p.cost_usd:.5f}, {p.tokens_in}+{p.tokens_out} tok'}"
+          f"{'  [repaired]' if p.repaired else ''}")
+    for v, why, clip in zip(p.edl.variations, p.reasoning["variations"], r.clips):
+        cuts = why["cuts"]
+        note = f"{cuts} cut{'' if cuts == 1 else 's'}"
+        if why["bridged"]:
+            note += f", {why['bridged']} bridged"
+        if why["grown_s"]:
+            note += f", +{why['grown_s']}s to reach length"
+        print(f"\n  {v.strategy}  --  \"{why['title']}\"")
+        print(f"    {why['logline']}")
+        print(f"    {v.output_duration:.1f}s, {why['reframe']}, {note}")
+        for m in why["moments"]:
+            print(f"    {m['id']:<3} {m['label']}  --  {m['why']}")
+        print(f"    -> {clip.output.name}  ({clip.size_mb:.1f} MB, {clip.seconds_taken:.1f}s)")
+
+    if p.reasoning.get("overlap"):
+        print("\n  footage shared between cuts:")
+        for o in p.reasoning["overlap"]:
+            flag = "  <-- too similar" if o["overlap"] > 0.30 else ""
+            print(f"    {o['a']} / {o['b']}: {o['overlap']:.0%}{flag}")
+
+    print("\n" + "=" * 66)
+    print("COST  (this run)")
+    print("=" * 66)
+    c = r.report()["cost"]
+    def line(label: str, usd: float, cached: bool) -> None:
+        print(f"  {label:<26} ${usd:.5f}{'  (cached)' if cached else ''}")
+    line("TwelveLabs analysis", c["twelvelabs_usd"], c["cached"]["twelvelabs"])
+    line("whisper-1 transcription", c["whisper_usd"], c["cached"]["whisper"])
+    line("gpt-4o-mini brief", c["brief_usd"], c["cached"]["brief"])
+    line("gpt-4o-mini storylines", c["plan_usd"], c["cached"]["plan"])
+    print(f"  {'-' * 40}")
+    print(f"  {'AI total':<26} ${c['ai_total_usd']:.5f}")
+    print(f"\n  wall clock: {r.wall_s:.1f}s")
+    for w in r.warnings:
         print(f"  note: {w}")
-
-    print()
-    for v, r in zip(p.edl.variations, p.reasoning["variations"]):
-        cuts = r.get("cuts", 0)
-        bridged = r.get("bridged", 0)
-        note = f", {cuts} cut" + ("" if cuts == 1 else "s")
-        if bridged:
-            note += f", {bridged} micro-gap bridged"
-        if r.get("grown_s"):
-            note += f", extended {r['grown_s']}s to reach length"
-        print(f"  {v.strategy}  ({v.output_duration:.1f}s, {r['reframe']}{note})")
-        print(f"    hook: \"{r['hook']}\"")
-        for pick in r["picks"]:
-            print(
-                f"    beat {pick['beats']:<5} "
-                f"{pick['start']:6.1f}-{pick['end']:5.1f}s  {pick['why']}"
-            )
-        print()
-
-    # --------------------------------------------------------------- render
-    print("=" * 66)
-    print("STEP 1  RENDER")
-    print("=" * 66)
-    want_captions = args.captions == "on"
-    if args.captions == "auto":
-        # Off, deliberately, even when analysis claims the source has no text.
-        #
-        # TwelveLabs reported ON_SCREEN_TEXT: no for a source with large burned-in
-        # captions across the lower third, and we stacked ours on top of them.
-        # The harm is asymmetric: a false "on" produces two sets of text and looks
-        # broken, while a false "off" just leaves the source as its author made it.
-        # So we take the safe side until a deterministic detector exists -- frame
-        # differencing across the lower third would do it, no model needed.
-        want_captions = False
-        claim = (
-            f" (analysis claimed on-screen text: {vis.on_screen_text})"
-            if vis and vis.on_screen_text is not None
-            else ""
-        )
-        print(f"  captions: off - safe default{claim}. Use --captions on to force.")
-    if not want_captions:
-        for v in p.edl.variations:
-            v.captions = []
-
-    results = []
-    for v, r in zip(p.edl.variations, p.reasoning["variations"]):
-        fit = r["reframe"] if args.fit == "auto" else args.fit
-        print(f"  {v.id:<22} {fit:<5} ... ", end="", flush=True)
-        try:
-            res = render_variation(
-                v, source, args.out,
-                fit=fit,
-                watermark=args.watermark,
-                content_crop=content_crop,
-            )
-        except RuntimeError as e:
-            print("FAILED")
-            print(f"\n{e}\n", file=sys.stderr)
-            return 1
-        results.append(res)
-        print(f"{fmt_duration(res.duration)}  {res.size_mb:>5.1f} MB  {res.seconds_taken:>5.1f}s")
-
-    # --------------------------------------------------------------- report
-    ai_cost = t.cost_usd + p.cost_usd + (vis.cost_usd if vis else 0.0)
-    render_s = sum(r.seconds_taken for r in results)
-    wall = (t.seconds_taken + p.seconds_taken + render_s + (vis.seconds_taken if vis else 0.0))
-
-    print("\n" + "=" * 66)
-    print("COST  (measured, this run)")
-    print("=" * 66)
-    print(f"  whisper-1 transcription   ${t.cost_usd:.5f}{'  (cached)' if t.cached else ''}")
-    print(f"  gpt-4o-mini edit plan     ${p.cost_usd:.5f}{'  (cached)' if p.cached else ''}")
-    tl = vis.cost_usd if vis else 0.0
-    print(f"  TwelveLabs analysis       ${tl:.5f}{'  (cached)' if vis and vis.cached else '' if vis else '  (skipped)'}")
-    print(f"  ffmpeg render             ~$0.00300  (compute, estimated)")
-    print(f"  {'-' * 44}")
-    print(f"  measured so far           ${ai_cost + 0.003:.5f} per video")
-    print(f"  plan estimate             $0.15000 per video (TwelveLabs is ~90% of it)")
-    print(f"\n  wall clock: {wall:.1f}s for 3 clips")
-    print(f"  -> {args.out.resolve()}")
-
-    report = {
-        "source": source.path.name,
-        "duration_s": round(source.duration, 2),
-        "transcription_usd": round(t.cost_usd, 6),
-        "plan_usd": round(p.cost_usd, 6),
-        "measured_ai_usd": round(ai_cost, 6),
-        "wall_clock_s": round(wall, 1),
-        "plan": p.reasoning,
-        "clips": [
-            {
-                "id": r.variation_id,
-                "strategy": r.strategy,
-                "file": r.output.name,
-                "duration_s": round(r.duration, 2),
-                "size_mb": round(r.size_mb, 2),
-            }
-            for r in results
-        ],
-    }
-    args.out.mkdir(parents=True, exist_ok=True)
-    (args.out / "report.json").write_text(
-        json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
-    print(f"  -> report.json")
-    print(f"  cache: {CACHE_DIR}  (delete to force a paid re-run)\n")
+    print(f"  -> {args.out.resolve()}\n")
     return 0
 
 

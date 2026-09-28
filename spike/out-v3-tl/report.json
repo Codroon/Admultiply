@@ -1,101 +1,266 @@
 {
   "source": "video3.mp4",
   "duration_s": 60.57,
-  "transcription_usd": 0.0,
-  "plan_usd": 0.001017,
-  "measured_ai_usd": 0.001017,
-  "wall_clock_s": 29.0,
-  "plan": {
-    "variations": [
+  "resolution": "576x1024",
+  "wall_clock_s": 34.2,
+  "cost": {
+    "twelvelabs_usd": 0.0,
+    "whisper_usd": 0.0,
+    "brief_usd": 0.0,
+    "plan_usd": 0.00146,
+    "ai_total_usd": 0.00146,
+    "cached": {
+      "twelvelabs": true,
+      "whisper": true,
+      "brief": true,
+      "plan": false
+    }
+  },
+  "brief": {
+    "product": "Hair extensions",
+    "audience": "Hair stylists looking to expand their skills and confidence with various hair types.",
+    "format": "tutorial",
+    "arc": "A hair stylist demonstrates how to adapt techniques for different hair types using extensions to achieve a beautiful hairstyle.",
+    "angles": [
+      "Problem → Solution",
+      "How it works",
+      "Social proof"
+    ],
+    "angle_reasoning": "The ad effectively identifies the problem of stylists feeling limited by hair types and presents the product as a solution through demonstration. It also showcases the stylist's expertise, providing social proof of the technique's effectiveness.",
+    "moments": [
       {
-        "strategy": "Hook-first",
-        "hook": "Dramatic hair transformation revealed!",
-        "reframe": "crop",
-        "picks": [
-          {
-            "beats": "8-14",
-            "start": 19.6,
-            "end": 42.34,
-            "why": "Starts with the hook of transformation and quickly discusses the technique."
-          },
-          {
-            "beats": "19",
-            "start": 52.64,
-            "end": 54.78,
-            "why": "Ends with the impressive results, showcasing the effectiveness."
-          }
-        ],
-        "bridged": 0,
-        "grown_s": 0.0,
-        "cuts": 1
+        "id": "m1",
+        "label": "Hook: Before & After",
+        "start": 0.0,
+        "end": 6.7,
+        "role": "hook",
+        "strength": 5,
+        "shown": "A dramatic before-and-after transition of the model's hair."
       },
       {
-        "strategy": "Problem → Solution",
-        "hook": "Different hair needs different things.",
-        "reframe": "crop",
-        "picks": [
-          {
-            "beats": "12-14",
-            "start": 30.32,
-            "end": 42.34,
-            "why": "Identifies the problem of different hair needs."
-          },
-          {
-            "beats": "18-19",
-            "start": 50.88,
-            "end": 54.78,
-            "why": "Presents the solution with a strong outcome."
-          }
-        ],
-        "bridged": 0,
-        "grown_s": 0.0,
-        "cuts": 1
+        "id": "m2",
+        "label": "Demo: Application Prep",
+        "start": 10.6,
+        "end": 16.1,
+        "role": "demo",
+        "strength": 4,
+        "shown": "The stylist discusses the importance of prep while showing the model's beautiful hair."
       },
       {
-        "strategy": "Social proof",
-        "hook": "Different hair needs different things.",
-        "reframe": "crop",
-        "picks": [
-          {
-            "beats": "14",
-            "start": 34.64,
-            "end": 42.34,
-            "why": "Showcases the technique and thought process behind the extensions."
-          },
-          {
-            "beats": "19",
-            "start": 52.64,
-            "end": 54.78,
-            "why": "Ends on impressive results, showcasing effectiveness."
-          }
-        ],
-        "bridged": 0,
-        "grown_s": 0.0,
-        "cuts": 1
+        "id": "m3",
+        "label": "Demo: Application Technique",
+        "start": 16.2,
+        "end": 23.2,
+        "role": "demo",
+        "strength": 4,
+        "shown": "The stylist explains how to apply extensions for the best results."
+      },
+      {
+        "id": "m4",
+        "label": "Demo: Curling Technique",
+        "start": 23.6,
+        "end": 28.9,
+        "role": "demo",
+        "strength": 4,
+        "shown": "The stylist discusses the importance of adapting techniques for different hair types."
+      },
+      {
+        "id": "m5",
+        "label": "Demo: Blending Extensions (1/3)",
+        "start": 29.2,
+        "end": 31.7,
+        "role": "demo",
+        "strength": 4,
+        "shown": "The stylist demonstrates how to blend extensions with natural hair."
+      },
+      {
+        "id": "m6",
+        "label": "Demo: Blending Extensions (2/3)",
+        "start": 32.1,
+        "end": 34.5,
+        "role": "demo",
+        "strength": 3,
+        "shown": "The stylist demonstrates how to blend extensions with natural hair."
+      },
+      {
+        "id": "m7",
+        "label": "Demo: Blending Extensions (3/3)",
+        "start": 34.8,
+        "end": 42.1,
+        "role": "demo",
+        "strength": 2,
+        "shown": "The stylist demonstrates how to blend extensions with natural hair."
+      },
+      {
+        "id": "m8",
+        "label": "Proof: Results",
+        "start": 52.6,
+        "end": 54.4,
+        "role": "proof",
+        "strength": 5,
+        "shown": "The stylist reveals the final blended hairstyle and the model's reaction."
       }
     ]
   },
-  "clips": [
+  "variations": [
     {
-      "id": "hook-first",
-      "strategy": "Hook-first",
-      "file": "video3__hook-first__crop.mp4",
-      "duration_s": 24.88,
-      "size_mb": 13.55
-    },
-    {
-      "id": "problem-solution",
       "strategy": "Problem → Solution",
+      "title": "Transform Your Technique with Extensions",
+      "logline": "Learn how to adapt extension techniques for different hair types and achieve stunning results.",
+      "reframe": "crop",
+      "moments": [
+        {
+          "id": "m1",
+          "label": "Hook: Before & After",
+          "why": "The dramatic before-and-after transition captures attention, highlighting the transformation that hair extensions can create."
+        },
+        {
+          "id": "m4",
+          "label": "Demo: Curling Technique",
+          "why": "This moment addresses the problem of adapting techniques for various hair types, presenting the solution and preparation needed for successful application."
+        },
+        {
+          "id": "m8",
+          "label": "Proof: Results",
+          "why": "Ending with the final result showcases the successful application of the product, emphasizing the benefits and effectiveness of using hair extensions."
+        }
+      ],
+      "used": [
+        "m1",
+        "m4",
+        "m8"
+      ],
+      "picks": [
+        {
+          "start": 0.06,
+          "end": 7.0
+        },
+        {
+          "start": 23.42,
+          "end": 29.16
+        },
+        {
+          "start": 52.64,
+          "end": 54.78
+        }
+      ],
+      "bridged": 0,
+      "grown_s": 0.0,
+      "cuts": 2,
       "file": "video3__problem-solution__crop.mp4",
-      "duration_s": 15.92,
-      "size_mb": 7.57
+      "duration_s": 14.82,
+      "size_mb": 10.84,
+      "render_s": 7.7
     },
     {
-      "id": "social-proof",
+      "strategy": "How it works",
+      "title": "Mastering Hair Extensions Techniques",
+      "logline": "A stylist demonstrates essential techniques for flawless hair extensions.",
+      "reframe": "blur",
+      "moments": [
+        {
+          "id": "m2",
+          "label": "Demo: Application Prep",
+          "why": "This moment introduces the application prep, setting a strong foundation for the tutorial."
+        },
+        {
+          "id": "m3",
+          "label": "Demo: Application Technique",
+          "why": "Following up with the application technique, this moment deepens the viewer's understanding of how to achieve the best results."
+        },
+        {
+          "id": "m8",
+          "label": "Proof: Results",
+          "why": "Ending with the proof of results showcases the successful application and final reveal, reinforcing the value of learning these techniques."
+        }
+      ],
+      "used": [
+        "m2",
+        "m3",
+        "m8"
+      ],
+      "picks": [
+        {
+          "start": 10.46,
+          "end": 23.54
+        },
+        {
+          "start": 52.64,
+          "end": 54.78
+        }
+      ],
+      "bridged": 0,
+      "grown_s": 0.0,
+      "cuts": 1,
+      "file": "video3__how-it-works__blur.mp4",
+      "duration_s": 15.22,
+      "size_mb": 9.15,
+      "render_s": 7.9
+    },
+    {
       "strategy": "Social proof",
+      "title": "Seamlessly Blending Extensions",
+      "logline": "Watch how expertly blending extensions transforms any hairstyle.",
+      "reframe": "crop",
+      "moments": [
+        {
+          "id": "m5",
+          "label": "Demo: Blending Extensions (1/3)",
+          "why": "This moment shows the stylist blending the extensions, setting up the transformation."
+        },
+        {
+          "id": "m6",
+          "label": "Demo: Blending Extensions (2/3)",
+          "why": "The continuation on blending adds depth to the technique being demonstrated."
+        },
+        {
+          "id": "m8",
+          "label": "Proof: Results",
+          "why": "Ending with the final results reinforces social proof and showcases the successful transformation."
+        }
+      ],
+      "used": [
+        "m5",
+        "m6",
+        "m8"
+      ],
+      "picks": [
+        {
+          "start": 29.04,
+          "end": 42.44
+        },
+        {
+          "start": 52.64,
+          "end": 54.78
+        }
+      ],
+      "bridged": 0,
+      "grown_s": 7.7,
+      "cuts": 1,
       "file": "video3__social-proof__crop.mp4",
-      "duration_s": 9.84,
-      "size_mb": 4.59
+      "duration_s": 15.54,
+      "size_mb": 7.26,
+      "render_s": 6.7
     }
+  ],
+  "overlap": [
+    {
+      "a": "Problem → Solution",
+      "b": "How it works",
+      "overlap": 0.15
+    },
+    {
+      "a": "Problem → Solution",
+      "b": "Social proof",
+      "overlap": 0.15
+    },
+    {
+      "a": "How it works",
+      "b": "Social proof",
+      "overlap": 0.14
+    }
+  ],
+  "warnings": [
+    "Source is 576px wide; output is upscaled to 1080."
   ]
 }
