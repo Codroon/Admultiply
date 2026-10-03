@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { useDashboard } from "./dashboard-provider";
+import { UploadBay } from "./upload-bay";
 
 const ACCEPTED = ["video/mp4", "video/quicktime", "video/x-msvideo"];
 const MAX_SECONDS = 95; // spec: 1 min 30 s (+ small grace)
@@ -78,7 +79,7 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
     <section className={compact ? "" : "pt-2"}>
       {!compact && (
         <div className="mb-5 text-center">
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          <h2 className="display-xs">
             Upload your winning ad
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
@@ -101,55 +102,63 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
       />
 
       {!picked ? (
-        <motion.button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragging(false);
-            const f = e.dataTransfer.files?.[0];
-            if (f) inspect(f);
-          }}
-          whileHover={{ y: -2 }}
-          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-          className={`group relative isolate flex w-full flex-col items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed px-6 py-14 text-center transition-all duration-300 sm:py-20 ${
-            dragging
-              ? "border-brand-500 bg-brand-500/[0.07] shadow-xl shadow-brand-500/10"
-              : "border-[var(--color-border-subtle)] bg-white hover:border-brand-500/60 hover:shadow-lg hover:shadow-brand-500/[0.07] dark:border-[var(--color-border-dark-subtle)] dark:bg-[var(--color-surface-dark-card)]"
-          }`}
-        >
-          {/* Ambient glow that wakes on hover / drag */}
-          <span
-            className={`pointer-events-none absolute left-1/2 top-0 -z-10 h-48 w-80 -translate-x-1/2 rounded-full bg-brand-500/15 blur-[70px] transition-opacity duration-500 ${
-              dragging ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+        compact ? (
+          /* Once there is work on the page the bay would dominate it, so the
+             repeat-upload affordance collapses to a single bar. */
+          <motion.button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              const f = e.dataTransfer.files?.[0];
+              if (f) inspect(f);
+            }}
+            whileHover={{ y: -1 }}
+            transition={{ duration: 0.2 }}
+            className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors ${
+              dragging
+                ? "border-brand-500 bg-brand-500/[0.06]"
+                : "border-[var(--color-border-subtle)] bg-white hover:border-brand-500/50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-brand-500/40"
             }`}
-          />
-
-          <span
-            className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-lg shadow-brand-500/30 transition-transform duration-300 group-hover:-translate-y-1 group-hover:scale-105"
-            style={{ animation: "float-slow 4.5s ease-in-out infinite" }}
           >
-            <UploadCloud size={28} strokeWidth={2} />
-          </span>
-
-          <p className="mt-5 text-base font-semibold sm:text-lg">
-            {dragging
-              ? "Drop it — we'll take it from here"
-              : "Drag & drop your video, or click to browse"}
-          </p>
-          <p className="mt-1.5 text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-            MP4, MOV or AVI · up to 1 min 30 s
-          </p>
-          <span className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-brand-500/10 px-3.5 py-1.5 text-[11px] font-bold text-brand-600 ring-1 ring-brand-500/20 dark:text-brand-400">
-            <Sparkles size={11} />
-            1 token → 3 variations
-          </span>
-        </motion.button>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500">
+              <UploadCloud size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">
+                {dragging ? "Drop it — we'll take it from here" : "Multiply another ad"}
+              </span>
+              <span className="block text-[11px] text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
+                MP4, MOV or AVI · up to 1 min 30 s
+              </span>
+            </span>
+            <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-brand-500/10 px-3 py-1.5 text-[11px] font-bold text-brand-600 ring-1 ring-brand-500/20 dark:text-brand-400 sm:inline-flex">
+              <Sparkles size={11} />1 token → 3 variations
+            </span>
+          </motion.button>
+        ) : (
+          <UploadBay
+            dragging={dragging}
+            onPick={() => inputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              const f = e.dataTransfer.files?.[0];
+              if (f) inspect(f);
+            }}
+          />
+        )
       ) : (
         <Card className="p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">

@@ -57,7 +57,7 @@ export function Showcase() {
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-500">
             Made with AdMultiply
           </p>
-          <h2 className="mt-1 text-lg font-bold tracking-tight sm:text-xl">
+          <h2 className="display-xs mt-1">
             Micro-ads our AI generated from one winning upload
           </h2>
         </div>

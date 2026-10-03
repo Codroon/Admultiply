@@ -15,7 +15,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Logo, LogoMark } from "@/components/logo";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { WorkspaceSurface, WorkspaceThemeProvider } from "./workspace-theme";
+import { WorkspaceToggle } from "./workspace-toggle";
 import { ToastProvider } from "@/components/ui/toast";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { DashboardProvider, useDashboard } from "./dashboard-provider";
@@ -39,12 +40,16 @@ const SIDEBAR_KEY = "admultiply-sidebar-collapsed";
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   return (
-    <ToastProvider>
-      <DashboardProvider>
-        <ShellInner>{children}</ShellInner>
-        <UpgradeModal />
-      </DashboardProvider>
-    </ToastProvider>
+    <WorkspaceThemeProvider>
+      <WorkspaceSurface>
+        <ToastProvider>
+          <DashboardProvider>
+            <ShellInner>{children}</ShellInner>
+            <UpgradeModal />
+          </DashboardProvider>
+        </ToastProvider>
+      </WorkspaceSurface>
+    </WorkspaceThemeProvider>
   );
 }
 
@@ -139,13 +144,13 @@ function ShellInner({ children }: { children: ReactNode }) {
 
         <div className={`mt-auto flex flex-col ${collapsed ? "items-center gap-4" : "gap-3"}`}>
           {collapsed ? (
-            <ThemeToggle />
+            <WorkspaceToggle />
           ) : (
             <div className="flex items-center justify-between px-2">
               <span className="text-xs font-medium text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-                View mode
+                Workspace
               </span>
-              <ThemeToggle />
+              <WorkspaceToggle />
             </div>
           )}
           <AccountMenu
@@ -165,7 +170,7 @@ function ShellInner({ children }: { children: ReactNode }) {
         </Link>
         <div className="flex items-center gap-2">
           <TokenChip tokens={tokens} />
-          <ThemeToggle />
+          <WorkspaceToggle />
         </div>
       </header>
 

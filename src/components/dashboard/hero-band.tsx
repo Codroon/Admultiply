@@ -54,12 +54,10 @@ export function HeroBand() {
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-        className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl"
+        className="display-sm"
       >
         {greeting},{" "}
-        <span className="bg-gradient-to-r from-brand-400 via-brand-500 to-brand-600 bg-[length:200%_100%] bg-clip-text text-transparent animate-shimmer">
-          {userName}
-        </span>
+        <span className="text-brand-500">{userName}</span>
       </motion.h1>
       <motion.p
         initial={{ opacity: 0, y: 10 }}

@@ -44,7 +44,7 @@ function ResultsInner({ job, title }: { job: Job; title?: string }) {
     <section>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold tracking-tight sm:text-xl">
+          <h2 className="display-xs">
             {title ?? "Your 3 new micro-ads are ready"}
           </h2>
           <p className="mt-0.5 truncate text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">

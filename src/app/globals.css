@@ -64,6 +64,17 @@
   font-size: clamp(2.75rem, 7.6vw, 6.5rem);
 }
 
+/* Workspace scale. The dashboard is dense and functional, so its headings
+   change voice without changing size — same footprint as the Inter headings
+   they replace, drawn in the display face. */
+.display-xs {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  font-size: clamp(1.4rem, 2.2vw, 1.875rem);
+}
+
 .display-sm {
   font-family: var(--font-display);
   font-weight: 800;
