@@ -50,7 +50,7 @@ export function Testimonials() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={viewportOnce}
           transition={{ duration: 0.5 }}
-          className="mx-auto max-w-xl text-center text-3xl font-bold tracking-tight sm:text-4xl"
+          className="mx-auto max-w-xl text-center display-sm"
         >
           Trusted by Creators &amp; Marketing Teams
         </motion.h2>

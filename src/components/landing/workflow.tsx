@@ -31,7 +31,7 @@ export function Workflow() {
           <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-brand-500">
             One Workflow. Zero Friction.
           </span>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="mt-3 display-sm">
             Upload.{" "}
             <span className="bg-gradient-to-r from-brand-400 via-brand-500 to-brand-600 bg-[length:200%_100%] bg-clip-text text-transparent animate-shimmer">
               Multiply.

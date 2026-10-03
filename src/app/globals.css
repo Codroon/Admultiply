@@ -4,6 +4,7 @@
 
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), var(--font-inter), ui-sans-serif, sans-serif;
 
   --color-brand-50: #fff7ed;
   --color-brand-100: #ffedd5;
@@ -46,6 +47,52 @@
   .dark body {
     background-color: var(--color-surface-dark);
     color: var(--color-ink-dark);
+  }
+}
+
+/* Display type.
+
+   The headline was 54px — not a big font, whatever `text-5xl` suggests.
+   Current landing pages run 90–120px, and at that scale tracking has to come
+   in hard or the letters drift apart. These two classes carry the whole
+   typographic shift; everything else is layout. */
+.display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.038em;
+  line-height: 0.95;
+  font-size: clamp(2.75rem, 7.6vw, 6.5rem);
+}
+
+.display-sm {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  font-size: clamp(2rem, 4.4vw, 3.5rem);
+}
+
+/* Headline reveal, line by line.
+
+   A block of text fading in as one object reads as a web page. The same text
+   arriving a line at a time reads as something that was designed. Each line
+   sits in a clipping mask and rises into it. */
+.reveal-line {
+  display: block;
+  overflow: hidden;
+}
+
+.reveal-line > span {
+  display: block;
+  animation: rise-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes rise-in {
+  from {
+    transform: translateY(105%);
+  }
+  to {
+    transform: translateY(0);
   }
 }
 

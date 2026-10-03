@@ -99,7 +99,7 @@ export function HowItWorks() {
             <Sparkles size={12} />
             From one ad to three, in seconds
           </span>
-          <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="mt-4 display-sm">
             How It Works
           </h2>
         </motion.div>
@@ -148,7 +148,7 @@ function FeatureRow({ row, reverse }: { row: Row; reverse: boolean }) {
           </span>
         </div>
 
-        <h3 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">
+        <h3 className="mt-4 display-sm">
           {row.heading}
         </h3>
 

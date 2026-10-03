@@ -11,7 +11,10 @@ const links = [
   { href: "#faq", label: "FAQ" },
 ];
 
-export function Nav() {
+/* `overDark` is for the hero stage, which is near-black in both themes. At the
+   top the bar is transparent over it, so its text has to be light regardless
+   of theme; once scrolled it becomes the normal themed bar. */
+export function Nav({ overDark = false }: { overDark?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -21,12 +24,15 @@ export function Nav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Light-on-dark only while the bar is transparent over the hero stage.
+  const onDark = overDark && !scrolled;
+
   return (
     <motion.header
       initial={{ y: -24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="fixed inset-x-0 top-0 z-50"
+      className={`fixed inset-x-0 top-0 z-50 ${onDark ? "text-white" : ""}`}
     >
       {/* At the top: transparent, blends into the hero.
           On scroll: a soft blurred bar fades in. */}
@@ -46,7 +52,11 @@ export function Nav() {
             <a
               key={link.href}
               href={link.href}
-              className="rounded-full px-4 py-1.5 text-sm font-medium text-[var(--color-ink-muted)] transition-colors hover:text-[var(--color-ink)] dark:text-[var(--color-ink-dark-muted)] dark:hover:text-white"
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                onDark
+                  ? "text-white/60 hover:text-white"
+                  : "text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] dark:text-[var(--color-ink-dark-muted)] dark:hover:text-white"
+              }`}
             >
               {link.label}
             </a>

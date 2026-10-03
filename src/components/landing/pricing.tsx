@@ -22,7 +22,7 @@ export function Pricing() {
           transition={{ duration: 0.5 }}
           className="mx-auto max-w-2xl text-center"
         >
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="display-sm">
             Choose the right plan for you
           </h2>
           <p className="mt-4 text-sm text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)] sm:text-base">

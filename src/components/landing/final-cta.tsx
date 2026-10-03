@@ -14,7 +14,7 @@ export function FinalCta() {
         transition={{ duration: 0.6 }}
         className="mx-auto max-w-2xl text-center"
       >
-        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+        <h2 className="display-sm">
           Extend the lifespan of your winning creatives.
           <br />
           <motion.span

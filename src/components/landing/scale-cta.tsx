@@ -19,7 +19,7 @@ export function ScaleCta() {
         <div className="pointer-events-none absolute -bottom-20 -right-10 h-56 w-56 rounded-full bg-black/10 blur-3xl" />
 
         <div className="relative">
-          <h2 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          <h2 className="mx-auto max-w-2xl display-sm text-white">
             Beat Ad Fatigue. Scale What Works.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/85 sm:text-base">
