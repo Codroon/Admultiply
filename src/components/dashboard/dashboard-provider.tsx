@@ -25,6 +25,19 @@ import { useToast } from "@/components/ui/toast";
 
 export type Stage = "queued" | "analyzing" | "planning" | "rendering" | "ready" | "failed";
 
+/* A refine never replaces a clip — it adds a version. Nothing a customer
+   liked is destroyed by asking for a change, and they can switch back. */
+export type VariationVersion = {
+  n: number;
+  title: string;
+  logline: string;
+  src: string;
+  poster: string;
+  duration: string;
+  /** What was asked for. null on the original. */
+  instruction: string | null;
+};
+
 export type Variation = {
   id: string;
   label: string;
@@ -33,9 +46,29 @@ export type Variation = {
   src: string;
   poster: string;
   duration: string;
-  status: "pending" | "rendering" | "ready";
+  status: "pending" | "rendering" | "ready" | "refining";
   downloaded: boolean;
+  versions: VariationVersion[];
+  /** Index into versions. */
+  active: number;
+  refinesUsed: number;
+  refineError?: string | null;
 };
+
+/* Quick actions, rather than a bare text box. People don't know what to ask
+   for, and free text alone invites requests we can't meet ("add my logo").
+   These six map onto how the planner actually chooses moments. Keys must
+   match REFINE_INTENTS in spike/plan.py. */
+export const REFINE_INTENTS = [
+  { id: "different_opening", label: "Start somewhere else" },
+  { id: "shorter", label: "Make it shorter" },
+  { id: "longer", label: "Make it longer" },
+  { id: "more_product", label: "More of the product" },
+  { id: "different_ending", label: "Different ending" },
+  { id: "simpler", label: "Keep it simpler" },
+] as const;
+
+export const MAX_REFINES = 3;
 
 export type Job = {
   id: string;
@@ -72,6 +105,10 @@ type Ctx = State & {
   live: boolean;
   startJob: (file: File, meta: { duration: string }, opts?: JobOptions) => "ok" | "no-tokens";
   download: (jobId: string, variationId: string, kind: "hd" | "preview") => void;
+  /** Re-cut one variation. Paid plans only; free opens the upgrade modal. */
+  refine: (jobId: string, variationId: string, intent: string, note: string) => void;
+  /** Switch which version of a variation is live. */
+  setVersion: (jobId: string, variationId: string, n: number) => void;
   markPreviewPlayed: () => void;
   setPlan: (p: PlanId) => void;
   resetDemo: () => void;
@@ -108,6 +145,16 @@ const INITIAL_STATE: State = {
 /* Live mode: the API contract (mirrors spike/api.py)                       */
 /* ------------------------------------------------------------------------ */
 
+type ApiVersion = {
+  n: number;
+  title: string;
+  logline: string;
+  url: string;
+  poster: string;
+  duration_s: number;
+  instruction: string | null;
+};
+
 type ApiVariation = {
   id: string;
   strategy: string;
@@ -116,7 +163,11 @@ type ApiVariation = {
   url: string;
   poster: string;
   duration_s: number;
-  status: "ready";
+  status: "ready" | "refining";
+  versions: ApiVersion[];
+  active: number;
+  refines_used: number;
+  refine_error?: string | null;
 };
 
 type ApiJob = {
@@ -157,6 +208,12 @@ const CATEGORY_LABEL: Record<string, string> = {
 const fmtDuration = (s: number) =>
   `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 
+const emptyVersions = (): Pick<Variation, "versions" | "active" | "refinesUsed"> => ({
+  versions: [],
+  active: 0,
+  refinesUsed: 0,
+});
+
 function placeholderVariations(jobId: string): Variation[] {
   return [0, 1, 2].map((i) => ({
     id: `${jobId}_v${i}`,
@@ -168,6 +225,7 @@ function placeholderVariations(jobId: string): Variation[] {
     duration: "",
     status: "pending",
     downloaded: false,
+    ...emptyVersions(),
   }));
 }
 
@@ -190,8 +248,20 @@ function fromApi(job: Job, api: ApiJob): Job {
         src: PIPELINE_URL + d.url,
         poster: d.poster ? PIPELINE_URL + d.poster : "",
         duration: fmtDuration(d.duration_s),
-        status: "ready",
+        status: d.status === "refining" ? "refining" : "ready",
         downloaded: prev?.downloaded ?? false,
+        versions: (d.versions ?? []).map((v) => ({
+          n: v.n,
+          title: v.title,
+          logline: v.logline,
+          src: PIPELINE_URL + v.url,
+          poster: v.poster ? PIPELINE_URL + v.poster : "",
+          duration: fmtDuration(v.duration_s),
+          instruction: v.instruction,
+        })),
+        active: d.active ?? 0,
+        refinesUsed: d.refines_used ?? 0,
+        refineError: d.refine_error ?? null,
       };
     }
     const p = planned[i];
@@ -205,6 +275,7 @@ function fromApi(job: Job, api: ApiJob): Job {
       duration: "",
       status: stage === "rendering" && i === done.length ? "rendering" : "pending",
       downloaded: false,
+      ...emptyVersions(),
     };
   });
 
@@ -323,11 +394,39 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   /* ---------------------------------------------------------------- live */
 
+  /* Jobs whose completion toast has already fired. */
+  const announced = useRef<Set<string>>(new Set());
+
   const stopPolling = useCallback((jobId: string) => {
     const t = pollers.current.get(jobId);
     if (t) clearInterval(t);
     pollers.current.delete(jobId);
   }, []);
+
+  const patchVariation = useCallback(
+    (
+      jobId: string,
+      variationId: string,
+      patch: Partial<Variation> | ((v: Variation) => Partial<Variation>)
+    ) => {
+      setState((s) => ({
+        ...s,
+        jobs: s.jobs.map((j) =>
+          j.id !== jobId
+            ? j
+            : {
+                ...j,
+                variations: j.variations.map((v) =>
+                  v.id === variationId
+                    ? { ...v, ...(typeof patch === "function" ? patch(v) : patch) }
+                    : v
+                ),
+              }
+        ),
+      }));
+    },
+    []
+  );
 
   const poll = useCallback(
     (jobId: string) => {
@@ -347,9 +446,17 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             jobs: s.jobs.map((j) => (j.id === jobId ? fromApi(j, api) : j)),
           }));
           if (api.stage === "ready") {
-            stopPolling(jobId);
-            toast("Your 3 variations are ready 🎉");
-            if (api.warnings?.length) console.info("[pipeline]", api.warnings);
+            // A refine runs on a job that is already "ready", so stage alone
+            // isn't enough to stop polling — and the completion toast must
+            // only fire once, not again after every re-cut.
+            if (!announced.current.has(jobId)) {
+              announced.current.add(jobId);
+              toast("Your 3 variations are ready 🎉");
+              if (api.warnings?.length) console.info("[pipeline]", api.warnings);
+            }
+            if (!(api.variations ?? []).some((v) => v.status === "refining")) {
+              stopPolling(jobId);
+            }
           } else if (api.stage === "failed") {
             stopPolling(jobId);
             // Token reserved at submit comes back on failure — mirrors the ledger.
@@ -477,8 +584,21 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
               src: s.src,
               poster: s.poster,
               duration: s.duration,
-              status: "pending",
+              status: "pending" as const,
               downloaded: false,
+              versions: [
+                {
+                  n: 1,
+                  title: `Hook ${String.fromCharCode(65 + i)}`,
+                  logline: s.blurb,
+                  src: s.src,
+                  poster: s.poster,
+                  duration: s.duration,
+                  instruction: null,
+                },
+              ],
+              active: 0,
+              refinesUsed: 0,
             })),
       };
 
@@ -538,6 +658,95 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     [state.plan, state.jobs, toast]
   );
 
+  const refine = useCallback(
+    (jobId: string, variationId: string, intent: string, note: string) => {
+      // Gated on the plan, exactly like HD downloads. When real auth lands
+      // this reads the real plan instead of the demo one — nothing else changes.
+      if (!getPlan(state.plan).hd) {
+        setUpgradeOpen(true);
+        return;
+      }
+      const job = state.jobs.find((j) => j.id === jobId);
+      const index = job?.variations.findIndex((v) => v.id === variationId) ?? -1;
+      const current = index >= 0 ? job!.variations[index] : undefined;
+      if (!current || current.refinesUsed >= MAX_REFINES) return;
+
+      patchVariation(jobId, variationId, { status: "refining", refineError: null });
+      // The richest flywheel signal we collect: the customer saying, in words,
+      // exactly what was wrong with a cut.
+      console.info("[event] variation_refined", { jobId, variationId, intent, note });
+
+      if (!LIVE) {
+        later(2200, () => {
+          patchVariation(jobId, variationId, (v) => {
+            const n = v.versions.length + 1;
+            const label = REFINE_INTENTS.find((x) => x.id === intent)?.label ?? "Revised";
+            const next: VariationVersion = {
+              n,
+              title: `${label} · v${n}`,
+              logline: note.trim() || v.blurb,
+              src: v.src,
+              poster: v.poster,
+              duration: v.duration,
+              instruction: note.trim() || intent,
+            };
+            return {
+              status: "ready",
+              versions: [...v.versions, next],
+              active: v.versions.length,
+              refinesUsed: v.refinesUsed + 1,
+              label: next.title,
+              blurb: next.logline,
+            };
+          });
+          toast("Re-cut done");
+        });
+        return;
+      }
+
+      fetch(`${PIPELINE_URL}/jobs/${jobId}/variations/${index}/refine`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intent, note }),
+      })
+        .then(async (res) => {
+          if (!res.ok) throw new Error((await res.text()) || `Failed (${res.status})`);
+          poll(jobId); // the job is already "ready", so polling has stopped
+        })
+        .catch((e: Error) => {
+          patchVariation(jobId, variationId, { status: "ready", refineError: e.message });
+          toast("Couldn't re-cut that one", "error");
+        });
+    },
+    [state.plan, state.jobs, patchVariation, poll, toast]
+  );
+
+  const setVersion = useCallback(
+    (jobId: string, variationId: string, n: number) => {
+      const job = state.jobs.find((j) => j.id === jobId);
+      const index = job?.variations.findIndex((v) => v.id === variationId) ?? -1;
+      const current = index >= 0 ? job!.variations[index] : undefined;
+      const picked = current?.versions.find((v) => v.n === n);
+      if (!current || !picked) return;
+
+      patchVariation(jobId, variationId, {
+        active: current.versions.indexOf(picked),
+        src: picked.src,
+        poster: picked.poster,
+        duration: picked.duration,
+        label: picked.title,
+        blurb: picked.logline,
+      });
+
+      if (LIVE) {
+        fetch(`${PIPELINE_URL}/jobs/${jobId}/variations/${index}/version/${n}`, {
+          method: "POST",
+        }).catch(() => {});
+      }
+    },
+    [state.jobs, patchVariation]
+  );
+
   const markPreviewPlayed = useCallback(
     () => setState((s) => (s.previewPlayed ? s : { ...s, previewPlayed: true })),
     []
@@ -568,6 +777,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         live: LIVE,
         startJob,
         download,
+        refine,
+        setVersion,
         markPreviewPlayed,
         setPlan,
         resetDemo,
