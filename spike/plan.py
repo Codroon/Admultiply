@@ -32,6 +32,7 @@ from config import cache_read, cache_write, file_fingerprint
 from edl import (
     EDL,
     IDEAL_RANGE,
+    MAX_OUTPUT_SECONDS,
     MIN_OUTPUT_SECONDS,
     MIN_SEGMENT_SECONDS,
     Caption,
@@ -164,6 +165,189 @@ class PlanResult:
     cached: bool
     seconds_taken: float
     repaired: bool
+
+
+# --------------------------------------------------------------------------- #
+# Refine -- re-cut one variation to a customer's instruction                   #
+# --------------------------------------------------------------------------- #
+
+# Why this is cheap: the expensive work -- TwelveLabs analysis, the transcript,
+# the brief -- describes the *ad*, which has not changed. A refine re-runs one
+# storyline and re-renders one clip. About $0.0013 against $0.074 for a fresh
+# upload, roughly a fiftieth. The limit below is about keeping the product
+# sane, not about cost.
+MAX_REFINES = 3
+
+# Structured intents, because a bare text box is a bad interface here: people
+# do not know what to ask for, and free text invites requests we cannot meet
+# ("add my logo", "make it funnier"). These six cover most real asks, map
+# cleanly onto moment selection, and give the flywheel clean categorical data
+# alongside whatever the customer types.
+REFINE_INTENTS: dict[str, str] = {
+    # Length intents are RELATIVE, and the prompt states the current length.
+    # Phrased absolutely ("aim for 12s") the model made a 13.1s cut *longer*,
+    # because 13.1 was already near the floor and it had nothing to aim at.
+    "shorter": (
+        "Make it noticeably shorter than it is now -- cut roughly a third of "
+        "its length. Drop a moment, or swap one for a briefer one."
+    ),
+    "longer": (
+        "Make it longer than it is now -- add roughly half again. "
+        "Add a moment that earns its place."
+    ),
+    "different_opening": (
+        "Open on a completely different moment. The current opening does not work."
+    ),
+    "different_ending": (
+        "End on a different moment. The current ending does not land."
+    ),
+    "more_product": (
+        "Show more of the product. Favour moments where the product is on screen "
+        "or being used."
+    ),
+    "simpler": (
+        "Use fewer moments. Make it one clear idea rather than several."
+    ),
+}
+
+
+@dataclass
+class RefineResult:
+    raw: dict
+    variation: Variation
+    reasoning: dict
+    cost_usd: float
+    seconds_taken: float
+
+
+def _refine_prompt(
+    source: SourceInfo,
+    brief: Brief,
+    angle: str,
+    current: dict,
+    intent: str,
+    note: str,
+    others: list[dict],
+) -> str:
+    seq = current.get("sequence") or []
+    used = ", ".join(str(s.get("moment")) for s in seq) or "none"
+    now = sum(
+        m.duration for s in seq if (m := brief.moment(str(s.get("moment")))) is not None
+    )
+
+    asks = [REFINE_INTENTS[intent]] if intent in REFINE_INTENTS else []
+    if note.strip():
+        asks.append(f'In their own words: "{note.strip()}"')
+
+    # Length is stated, not inferred. The model will not add up a menu reliably,
+    # and every relative instruction depends on knowing where it is starting.
+    hold = ""
+    if intent not in ("shorter", "longer"):
+        hold = (
+            f"\nKeep the length close to its current {now:.0f}s -- they asked for a "
+            f"change to the content, not the length."
+        )
+
+    out = f"""Source ad: {source.path.name}  ({source.duration:.1f}s)
+Product: {brief.product}
+Arc: {brief.arc}
+
+Moments:
+
+{brief.menu()}
+
+THE CURRENT CUT -- angle "{angle}"
+  Title:  {current.get('title', '')}
+  Idea:   {current.get('logline', '')}
+  Uses:   {used}
+  Length: {now:.0f} seconds
+
+THE CUSTOMER HAS ASKED FOR A CHANGE:
+
+{chr(10).join('- ' + a for a in asks)}
+
+Produce a revised version of this cut. Change what they asked for and keep
+everything else that was working -- this is an edit, not a fresh start.{hold}"""
+
+    if others:
+        theirs = ", ".join(
+            f"{o['angle']} uses {', '.join(o['moments'])}" for o in others
+        )
+        out += (
+            f"\n\nThe other two cuts of this ad use: {theirs}. Stay distinct from "
+            f"them -- do not drift into being the same cut."
+        )
+    return out
+
+
+def refine_storyline(
+    source: SourceInfo,
+    transcript: Transcript,
+    brief: Brief,
+    angle: str,
+    current: dict,
+    api_key: str,
+    *,
+    intent: str = "",
+    note: str = "",
+    others: list[dict] | None = None,
+) -> RefineResult:
+    """Re-cut one variation to a customer instruction.
+
+    The model gets the same rules and the same moment menu as the first pass,
+    plus what it chose last time and what the customer wants changed. Framing
+    it as an edit rather than a fresh start is what stops it throwing away the
+    parts they liked.
+    """
+    started = time.perf_counter()
+    cost = 0.0
+    best: dict | None = None
+    best_var: Variation | None = None
+    best_score = 10**9
+    repair = ""
+
+    for _ in range(2):
+        prompt = _refine_prompt(source, brief, angle, current, intent, note, others or [])
+        if repair:
+            prompt += (
+                "\n\nYour previous attempt was rejected for these reasons. Fix them "
+                "and keep everything else:\n" + repair
+            )
+        resp = post_json(
+            "https://api.openai.com/v1/chat/completions",
+            {"Authorization": f"Bearer {api_key}"},
+            {
+                "model": MODEL,
+                "messages": [
+                    {"role": "system", "content": SYSTEM},
+                    {"role": "user", "content": prompt},
+                ],
+                "response_format": {"type": "json_schema", "json_schema": SCHEMA},
+                "temperature": 0.7,
+            },
+        )
+        usage = resp.get("usage", {})
+        cost += usage.get("prompt_tokens", 0) * PRICE_IN
+        cost += usage.get("completion_tokens", 0) * PRICE_OUT
+
+        candidate = json.loads(resp["choices"][0]["message"]["content"])
+        var, _ = _realise(candidate, angle, brief, transcript)
+        errors = _storyline_errors(var, candidate, brief, source.duration, [], [])
+        if len(errors) < best_score:
+            best, best_var, best_score = candidate, var, len(errors)
+        if not errors:
+            break
+        repair = "\n".join(f"- {e}" for e in errors)
+
+    assert best is not None and best_var is not None
+    _, reasoning = _realise(best, angle, brief, transcript)
+    return RefineResult(
+        raw=best,
+        variation=best_var,
+        reasoning=reasoning,
+        cost_usd=cost,
+        seconds_taken=time.perf_counter() - started,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -327,6 +511,27 @@ def _grow_to_minimum(
     return segments, grown
 
 
+def _trim_to_maximum(segments: list[Segment]) -> tuple[list[Segment], int]:
+    """Drop trailing shots until the clip is under the ceiling.
+
+    The mirror of _grow_to_minimum. The repair loop keeps the least-bad attempt
+    rather than failing outright, so an over-long plan can still reach here --
+    asking for "longer" took one cut from 19.5s to 29s, past our 26s cap.
+
+    Whole shots are dropped, never truncated. Cutting a shot short to make the
+    numbers work puts the clip back to ending mid-thought, which is the exact
+    thing the padding and dissolves exist to prevent.
+    """
+    dropped = 0
+    while len(segments) > 1 and sum(s.duration for s in segments) > MAX_OUTPUT_SECONDS:
+        without = sum(s.duration for s in segments[:-1])
+        if without < MIN_OUTPUT_SECONDS:
+            break  # dropping it would make the clip too short; leave it over
+        segments = segments[:-1]
+        dropped += 1
+    return segments, dropped
+
+
 def _captions(segments: list[Segment], transcript: Transcript) -> list[Caption]:
     out: list[Caption] = []
 
@@ -399,6 +604,7 @@ def _realise(
 
     segments, bridged = _bridge(segments)
     segments, grown = _grow_to_minimum(segments, boundaries, transcript.duration)
+    segments, dropped = _trim_to_maximum(segments)
     # A flash frame can never reach the render, whatever produced it.
     segments = [x for x in segments if x.duration >= MIN_SEGMENT_SECONDS]
     if grown:
@@ -431,6 +637,7 @@ def _realise(
         ],
         "bridged": bridged,
         "grown_s": round(grown, 1),
+        "dropped": dropped,
         "cuts": max(0, len(segments) - 1),
     }
     return variation, reasoning

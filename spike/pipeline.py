@@ -24,7 +24,7 @@ from config import cache_read, cache_write, file_fingerprint, load_env
 from edl import validate, warnings
 from ffmpeg_tools import ContentCrop, SourceInfo, detect_content_crop, detect_scene_cuts, probe
 from net import ApiError
-from plan import PlanResult, make_plan
+from plan import PlanResult, make_plan, refine_storyline
 from render import RenderResult, render_variation
 from transcribe import Transcript, transcribe
 from understand import Brief, understand
@@ -110,6 +110,115 @@ class Result:
             "overlap": self.plan.reasoning.get("overlap", []),
             "warnings": self.warnings,
         }
+
+
+@dataclass
+class RefineOutcome:
+    clip: RenderResult
+    reasoning: dict
+    cost_usd: float
+    seconds_taken: float
+
+
+def refine(
+    video: Path,
+    out_dir: Path,
+    angle: str,
+    *,
+    intent: str = "",
+    note: str = "",
+    version: int = 2,
+    opts: Options | None = None,
+    on_progress: Progress | None = None,
+) -> RefineOutcome:
+    """Re-cut one variation to a customer instruction.
+
+    Everything describing the *ad* is reused from cache -- the visual analysis,
+    the transcript, the brief, the other two storylines. Only the one storyline
+    is re-planned and the one clip re-rendered, which is why this costs about a
+    fiftieth of a fresh upload and finishes in seconds rather than a minute.
+    """
+    opts = opts or Options()
+    env = load_env()
+    openai_key = env.get("OPENAI_API_KEY", "")
+    if not openai_key:
+        raise RuntimeError("OPENAI_API_KEY is not set in .env.local")
+
+    def progress(stage: str, detail: str = "") -> None:
+        if on_progress:
+            on_progress(stage, detail)
+
+    started = time.perf_counter()
+    source = probe(video)
+    crop = detect_content_crop(source)
+    content_crop = crop if crop and crop.is_significant(source) else None
+
+    visual = None
+    if opts.visual and env.get("TWELVELABS_API_KEY"):
+        try:
+            visual = analyze(source, env["TWELVELABS_API_KEY"])
+        except (ApiError, RuntimeError, TimeoutError):
+            visual = None
+
+    transcript = transcribe(source, openai_key)
+    scene_cuts: list[float] = []
+    if transcript.mode != "speech":
+        fp = file_fingerprint(source.path)
+        cached = cache_read(fp, "scenes")
+        scene_cuts = cached["cuts"] if cached else detect_scene_cuts(source)
+    brief = understand(
+        source, transcript, openai_key,
+        visual=visual.for_prompt() if visual else "",
+        scene_cuts=scene_cuts,
+    )
+
+    # The existing plan, from cache. Gives us what this cut chose last time and
+    # what the other two use, so the revision stays distinct from them.
+    plan = make_plan(source, transcript, brief, openai_key)
+    current: dict | None = None
+    others: list[dict] = []
+    for why in plan.reasoning["variations"]:
+        shaped = {
+            "title": why.get("title", ""),
+            "logline": why.get("logline", ""),
+            "reframe": why.get("reframe", "crop"),
+            "sequence": [
+                {"moment": m["id"], "why": m.get("why", "")} for m in why.get("moments", [])
+            ],
+        }
+        if why["strategy"] == angle:
+            current = shaped
+        else:
+            others.append({"angle": why["strategy"], "moments": why.get("used", [])})
+
+    if current is None:
+        raise RuntimeError(f"No existing cut for angle {angle!r} to refine.")
+
+    progress("planning", "rewriting the cut")
+    result = refine_storyline(
+        source, transcript, brief, angle, current, openai_key,
+        intent=intent, note=note, others=others,
+    )
+
+    if not opts.captions:
+        result.variation.captions = []
+
+    progress("rendering", "1 of 1")
+    fit = result.reasoning["reframe"] if opts.fit == "auto" else opts.fit
+    clip = render_variation(
+        result.variation, source, out_dir,
+        fit=fit,
+        watermark=opts.watermark,
+        content_crop=content_crop,
+        suffix=f"v{version}",
+    )
+    progress("ready")
+    return RefineOutcome(
+        clip=clip,
+        reasoning=result.reasoning,
+        cost_usd=result.cost_usd,
+        seconds_taken=time.perf_counter() - started,
+    )
 
 
 def run(

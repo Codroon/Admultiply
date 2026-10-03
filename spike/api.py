@@ -27,11 +27,13 @@ import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from ffmpeg_tools import binary, run as ffrun
-from pipeline import Options, run
+from pipeline import Options, refine as pipeline_refine, run
+from plan import MAX_REFINES, REFINE_INTENTS
 from render import RenderResult
 from understand import Brief
 
@@ -127,6 +129,21 @@ def _poster(clip: Path) -> Path | None:
         return None
 
 
+def _version_entry(
+    job_id: str, clip: RenderResult, why: dict, *, n: int, instruction: str | None
+) -> dict:
+    poster = _poster(clip.output)
+    return {
+        "n": n,
+        "title": why.get("title", ""),
+        "logline": why.get("logline", ""),
+        "url": f"/clips/{job_id}/{clip.output.name}",
+        "poster": f"/clips/{job_id}/{poster.name}" if poster else "",
+        "duration_s": round(clip.duration, 2),
+        "instruction": instruction,
+    }
+
+
 # --------------------------------------------------------------------------- #
 # The worker
 # --------------------------------------------------------------------------- #
@@ -155,16 +172,17 @@ def _run_job(job_id: str, source: Path, opts: Options) -> None:
         )
 
     def on_clip(index: int, clip: RenderResult, why: dict) -> None:
-        poster = _poster(clip.output)
+        version = _version_entry(job_id, clip, why, n=1, instruction=None)
         entry = {
             "id": f"{job_id}_v{index}",
             "strategy": clip.strategy,
-            "title": why.get("title", ""),
-            "logline": why.get("logline", ""),
-            "url": f"/clips/{job_id}/{clip.output.name}",
-            "poster": f"/clips/{job_id}/{poster.name}" if poster else "",
-            "duration_s": round(clip.duration, 2),
             "status": "ready",
+            # Refines add versions rather than replacing the clip, so nothing
+            # a customer liked is ever destroyed by asking for a change.
+            "versions": [version],
+            "active": 0,
+            "refines_used": 0,
+            **version,
         }
         with _lock:
             job = _jobs[job_id]
@@ -239,6 +257,114 @@ async def create_job(
     )
     threading.Thread(target=_run_job, args=(job_id, source, opts), daemon=True).start()
     return _public(job)
+
+
+class RefineRequest(BaseModel):
+    intent: str = ""
+    note: str = ""
+
+
+def _run_refine(job_id: str, index: int, intent: str, note: str) -> None:
+    job = _jobs[job_id]
+    variation = job["variations"][index]
+    angle = variation["strategy"]
+    n = len(variation["versions"]) + 1
+
+    def touch(**patch) -> None:
+        with _lock:
+            variation.update(patch)
+            job["updated_at"] = time.time()
+            _save(job)
+
+    try:
+        outcome = pipeline_refine(
+            Path(job["_source"]),
+            _path(job_id),
+            angle,
+            intent=intent,
+            note=note,
+            version=n,
+            opts=Options(
+                visual=True,
+                captions=job["options"].get("captions", False),
+                watermark="AdMultiply" if job["options"].get("watermark", True) else None,
+            ),
+        )
+    except Exception as e:  # noqa: BLE001 -- any failure is this refine's failure
+        touch(status="ready", refine_error=str(e))
+        return
+
+    version = _version_entry(
+        job_id, outcome.clip, outcome.reasoning,
+        n=n, instruction=note.strip() or intent or "changed",
+    )
+    with _lock:
+        variation["versions"].append(version)
+        variation["active"] = len(variation["versions"]) - 1
+        variation["refines_used"] = variation.get("refines_used", 0) + 1
+        variation["status"] = "ready"
+        variation["refine_error"] = None
+        variation.update(version)  # top-level mirrors the active version
+        job["updated_at"] = time.time()
+        _save(job)
+
+
+@app.post("/jobs/{job_id}/variations/{index}/refine")
+def refine_variation(job_id: str, index: int, req: RefineRequest) -> dict:
+    job = _jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "No such job")
+    if job["stage"] != "ready":
+        raise HTTPException(409, "This job is still processing")
+    if index < 0 or index >= len(job.get("variations", [])):
+        raise HTTPException(404, "No such variation")
+
+    variation = job["variations"][index]
+    if variation.get("status") == "refining":
+        raise HTTPException(409, "Already refining this one")
+    if variation.get("refines_used", 0) >= MAX_REFINES:
+        raise HTTPException(
+            429, f"This variation has been refined {MAX_REFINES} times, the limit"
+        )
+    if req.intent and req.intent not in REFINE_INTENTS:
+        raise HTTPException(400, f"Unknown intent {req.intent!r}")
+    if not req.intent and not req.note.strip():
+        raise HTTPException(400, "Say what to change")
+
+    with _lock:
+        variation["status"] = "refining"
+        variation["refine_error"] = None
+        job["updated_at"] = time.time()
+        _save(job)
+
+    threading.Thread(
+        target=_run_refine, args=(job_id, index, req.intent, req.note), daemon=True
+    ).start()
+    return _public(job)
+
+
+@app.post("/jobs/{job_id}/variations/{index}/version/{n}")
+def set_active_version(job_id: str, index: int, n: int) -> dict:
+    """Switch which version of a variation is the live one."""
+    job = _jobs.get(job_id)
+    if not job or index >= len(job.get("variations", [])):
+        raise HTTPException(404, "No such variation")
+    variation = job["variations"][index]
+    picked = next((v for v in variation["versions"] if v["n"] == n), None)
+    if picked is None:
+        raise HTTPException(404, "No such version")
+    with _lock:
+        variation["active"] = variation["versions"].index(picked)
+        variation.update(picked)
+        job["updated_at"] = time.time()
+        _save(job)
+    return _public(job)
+
+
+@app.get("/refine-options")
+def refine_options() -> dict:
+    """What the UI offers as quick actions. Served so the two can't drift."""
+    return {"max_refines": MAX_REFINES, "intents": REFINE_INTENTS}
 
 
 @app.get("/jobs/{job_id}")

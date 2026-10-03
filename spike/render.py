@@ -320,12 +320,14 @@ def render_variation(
     watermark: str | None = None,
     keep_ass: bool = False,
     content_crop: ContentCrop | None = None,
+    suffix: str = "",
 ) -> RenderResult:
     if fit not in FIT_MODES:
         raise ValueError(f"fit must be one of {FIT_MODES}, got {fit!r}")
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    stem = f"{source.path.stem}__{variation.id}__{fit}"
+    # `suffix` keeps refined versions beside the original rather than over it.
+    stem = f"{source.path.stem}__{variation.id}__{fit}" + (f"__{suffix}" if suffix else "")
     out_path = out_dir / f"{stem}.mp4"
 
     total = rendered_duration(variation, source)

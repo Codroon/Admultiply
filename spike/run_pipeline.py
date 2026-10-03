@@ -106,7 +106,7 @@ def main() -> int:
             note += f", +{why['grown_s']}s to reach length"
         print(f"\n  {v.strategy}  --  \"{why['title']}\"")
         print(f"    {why['logline']}")
-        print(f"    {v.output_duration:.1f}s, {why['reframe']}, {note}")
+        print(f"    {clip.duration:.1f}s, {why['reframe']}, {note}")
         for m in why["moments"]:
             print(f"    {m['id']:<3} {m['label']}  --  {m['why']}")
         print(f"    -> {clip.output.name}  ({clip.size_mb:.1f} MB, {clip.seconds_taken:.1f}s)")
