@@ -22,11 +22,26 @@ TARGET_W = 1080
 TARGET_H = 1920
 TARGET_FPS = 30
 
-# Fade lengths, in seconds. Short enough to be invisible, long enough that the
-# join stops registering as a cut.
-SPLICE_FADE = 0.09      # either side of every internal audio join
-EDGE_FADE = 0.20        # video fade at the very start and end
-EDGE_FADE_AUDIO = 0.28  # audio settles a touch slower than picture
+# Transition lengths, in seconds.
+#
+# Internal joins are a true CROSS-DISSOLVE on picture and an equal-power
+# crossfade on sound. The previous version hard-cut the video and only dipped
+# the audio down and back up, which left two problems the client felt
+# immediately: two shots of the same person in the same room swapping in one
+# frame reads as a glitch, and the audio dip is an audible stumble mid-sentence.
+# Overlapping the two removes both.
+#
+# DISSOLVE is the one number to turn if the result is still jumpy (raise it) or
+# feels sluggish (lower it). 0.25s is about two frames short of noticeable as a
+# "transition" while being long enough to stop registering as a cut.
+DISSOLVE = 0.25
+
+# Top and tail. Asymmetric on purpose: the opening fade has to finish before the
+# first word lands, the closing one can breathe.
+EDGE_FADE_IN = 0.30
+EDGE_FADE_OUT = 0.40
+AUDIO_FADE_IN = 0.20
+AUDIO_FADE_OUT = 0.45
 
 # "crop" fills the frame and loses the sides; "blur" keeps the whole frame over
 # a blurred backdrop. Which one wins is an open question we settle on real
@@ -137,6 +152,34 @@ def _reframe_chain(fit: str, src: str = "[vcat]") -> tuple[str, str]:
     )
 
 
+def _clip_durations(variation: Variation, source: SourceInfo) -> list[float]:
+    """Each segment's length, clamped to the source."""
+    out = []
+    for seg in sorted(variation.segments, key=lambda s: s.start):
+        start = max(0.0, seg.start)
+        end = min(source.duration, seg.end)
+        out.append(max(0.05, end - start))
+    return out
+
+
+def dissolve_for(durations: list[float]) -> float:
+    """How long each join may overlap.
+
+    Capped at a third of the shortest segment so a dissolve can never eat a
+    whole shot. With real segments running 5-20s this never binds; it only
+    matters when the length backstop has produced something brief.
+    """
+    if len(durations) < 2:
+        return 0.0
+    return min(DISSOLVE, min(durations) / 3)
+
+
+def rendered_duration(variation: Variation, source: SourceInfo) -> float:
+    """Final length. Each dissolve overlaps two shots, so the clip shortens."""
+    durations = _clip_durations(variation, source)
+    return sum(durations) - dissolve_for(durations) * (len(durations) - 1)
+
+
 def build_filtergraph(
     variation: Variation,
     source: SourceInfo,
@@ -146,36 +189,53 @@ def build_filtergraph(
     content_crop: ContentCrop | None = None,
 ) -> str:
     segments = sorted(variation.segments, key=lambda s: s.start)
+    durations = _clip_durations(variation, source)
+    d = dissolve_for(durations)
+    n = len(segments)
     parts: list[str] = []
-    labels: list[str] = []
 
     for i, seg in enumerate(segments):
-        # Clamp defensively: a model off by a few frames shouldn't fail a render.
         start = max(0.0, seg.start)
         end = min(source.duration, seg.end)
-        dur = max(0.05, end - start)
+        # xfade demands both inputs share a frame rate, pixel format and aspect,
+        # so each shot is normalised before the join rather than after. Trimmed
+        # streams can be variable-frame-rate, which xfade silently mishandles.
         parts.append(
-            f"[0:v]trim=start={start:.3f}:end={end:.3f},setpts=PTS-STARTPTS[v{i}]"
+            f"[0:v]trim=start={start:.3f}:end={end:.3f},setpts=PTS-STARTPTS,"
+            f"fps={TARGET_FPS},format=yuv420p,setsar=1[v{i}]"
         )
         if source.has_audio:
-            # Splice fades. Stitching two moments from different parts of a
-            # video jumps room tone, breath and level in a single frame, and
-            # the ear reads that as "cut" well before the eye does. A short
-            # fade either side of every join removes it without changing
-            # duration, which a crossfade would.
-            fade = min(SPLICE_FADE, dur / 3)
             parts.append(
-                f"[0:a]atrim=start={start:.3f}:end={end:.3f},asetpts=PTS-STARTPTS,"
-                f"afade=t=in:st=0:d={fade:.3f},"
-                f"afade=t=out:st={max(0.0, dur - fade):.3f}:d={fade:.3f}[a{i}]"
+                f"[0:a]atrim=start={start:.3f}:end={end:.3f},asetpts=PTS-STARTPTS[a{i}]"
             )
-        labels.append(f"[v{i}]" + (f"[a{i}]" if source.has_audio else ""))
 
-    n = len(segments)
-    if source.has_audio:
-        parts.append(f"{''.join(labels)}concat=n={n}:v=1:a=1[vcat][acat]")
+    # Chain the dissolves. xfade's offset is measured from the start of its
+    # first input, so it walks forward with the running length, which itself
+    # shrinks by one dissolve at every join.
+    if n == 1:
+        parts.append("[v0]null[vcat]")
+        if source.has_audio:
+            parts.append("[a0]anull[acat]")
     else:
-        parts.append(f"{''.join(labels)}concat=n={n}:v=1:a=0[vcat]")
+        running = durations[0]
+        v_prev, a_prev = "[v0]", "[a0]"
+        for i in range(1, n):
+            v_out = "[vcat]" if i == n - 1 else f"[vx{i}]"
+            parts.append(
+                f"{v_prev}[v{i}]xfade=transition=fade:duration={d:.3f}:"
+                f"offset={max(0.0, running - d):.3f}{v_out}"
+            )
+            v_prev = v_out
+            if source.has_audio:
+                a_out = "[acat]" if i == n - 1 else f"[ax{i}]"
+                # Equal-power curves. A linear crossfade of two uncorrelated
+                # signals dips about 6dB at the midpoint, which is exactly the
+                # stumble we are removing.
+                parts.append(
+                    f"{a_prev}[a{i}]acrossfade=d={d:.3f}:c1=qsin:c2=qsin{a_out}"
+                )
+                a_prev = a_out
+            running += durations[i] - d
 
     # Strip baked-in letterbox/pillarbox bars before reframing, or we end up
     # scaling black and nesting one frame inside another.
@@ -199,21 +259,51 @@ def build_filtergraph(
     # is most of what separates "a clip someone extracted" from "an ad someone
     # made". Cheap, and it does more for perceived quality than anything else
     # in this filter graph.
-    total = sum(max(0.0, min(source.duration, s.end) - max(0.0, s.start)) for s in segments)
-    v_out_start = max(0.0, total - EDGE_FADE)
+    total = sum(durations) - d * (n - 1)
     parts.append(
-        f"{last_v}fade=t=in:st=0:d={EDGE_FADE:.3f},"
-        f"fade=t=out:st={v_out_start:.3f}:d={EDGE_FADE:.3f}[vout]"
+        f"{last_v}fade=t=in:st=0:d={EDGE_FADE_IN:.3f},"
+        f"fade=t=out:st={max(0.0, total - EDGE_FADE_OUT):.3f}:d={EDGE_FADE_OUT:.3f}[vout]"
     )
 
     if source.has_audio:
-        a_out_start = max(0.0, total - EDGE_FADE_AUDIO)
         parts.append(
-            f"[acat]afade=t=in:st=0:d={EDGE_FADE_AUDIO:.3f},"
-            f"afade=t=out:st={a_out_start:.3f}:d={EDGE_FADE_AUDIO:.3f}[aout]"
+            f"[acat]afade=t=in:st=0:d={AUDIO_FADE_IN:.3f},"
+            f"afade=t=out:st={max(0.0, total - AUDIO_FADE_OUT):.3f}:"
+            f"d={AUDIO_FADE_OUT:.3f}[aout]"
         )
 
     return ";".join(parts)
+
+
+def _shift_for_dissolve(
+    captions: list[Caption], variation: Variation, source: SourceInfo
+) -> list[Caption]:
+    """Pull caption timings back to match the dissolved timeline.
+
+    `remap_captions` works in hard-concat time, where each shot follows the
+    last exactly. Dissolving overlaps them, so everything after the first join
+    happens one dissolve earlier -- two joins in, two dissolves earlier. Without
+    this the captions drift later and later through the clip.
+    """
+    durations = _clip_durations(variation, source)
+    d = dissolve_for(durations)
+    if d <= 0 or len(durations) < 2 or not captions:
+        return captions
+
+    # Segment boundaries in hard-concat time, which is what the captions use.
+    bounds: list[float] = []
+    acc = 0.0
+    for dur in durations:
+        acc += dur
+        bounds.append(acc)
+
+    out: list[Caption] = []
+    for c in captions:
+        idx = next((i for i, b in enumerate(bounds) if c.start < b), len(bounds) - 1)
+        shift = d * idx
+        start = max(0.0, c.start - shift)
+        out.append(Caption(start, max(start + 0.05, c.end - shift), c.text))
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -238,8 +328,8 @@ def render_variation(
     stem = f"{source.path.stem}__{variation.id}__{fit}"
     out_path = out_dir / f"{stem}.mp4"
 
-    captions = remap_captions(variation)
-    total = variation.output_duration
+    total = rendered_duration(variation, source)
+    captions = _shift_for_dissolve(remap_captions(variation), variation, source)
 
     ass_name: str | None = None
     if captions or watermark:
