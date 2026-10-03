@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
@@ -28,12 +28,14 @@ import {
    start. A selected cut, large, with its reasoning beside it reads as
    something that was made for them. */
 export function ResultsSection({ job, title }: { job: Job; title?: string }) {
+  // Keyed on the job so a newly finished one remounts with its first cut
+  // selected, rather than an effect resetting the index after render.
+  return <ResultsInner key={job.id} job={job} title={title} />;
+}
+
+function ResultsInner({ job, title }: { job: Job; title?: string }) {
   const { hd, download, markPreviewPlayed } = useDashboard();
   const [selected, setSelected] = useState(0);
-
-  // A newly finished job replaces the one on screen; don't keep an index
-  // pointing at a cut that no longer exists.
-  useEffect(() => setSelected(0), [job.id]);
 
   const active = job.variations[Math.min(selected, job.variations.length - 1)];
   if (!active) return null;
