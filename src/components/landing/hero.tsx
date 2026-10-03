@@ -22,8 +22,8 @@ export function Hero() {
 
       {/* Stage lighting */}
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-1/2 top-[-12rem] h-[34rem] w-[52rem] -translate-x-1/2 rounded-full bg-brand-500/25 blur-[140px]" />
-        <div className="absolute bottom-0 left-1/4 h-72 w-72 rounded-full bg-amber-500/10 blur-[120px]" />
+        <div className="absolute left-1/2 top-[-14rem] h-[26rem] w-[30rem] -translate-x-1/2 rounded-full bg-brand-500/18 blur-[110px] sm:top-[-12rem] sm:h-[34rem] sm:w-[52rem] sm:bg-brand-500/25 sm:blur-[140px]" />
+        <div className="absolute bottom-0 left-1/4 hidden h-72 w-72 rounded-full bg-amber-500/10 blur-[120px] sm:block" />
         <div
           className="absolute inset-0 opacity-[0.07]"
           style={{
@@ -69,7 +69,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.5 }}
-          className="mx-auto mt-7 max-w-xl text-base leading-relaxed text-white/55 sm:text-lg"
+          className="mx-auto mt-7 max-w-xl text-base leading-relaxed text-white/60 sm:text-lg"
         >
           Upload one ad that&apos;s already converting. Get three vertical cuts
           built from its strongest moments — ready for TikTok, Reels and Shorts

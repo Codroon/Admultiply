@@ -97,7 +97,7 @@ export function HeroMockup() {
                   />
                 </div>
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
-                <span className="pointer-events-none absolute inset-x-2 bottom-2 truncate rounded-lg bg-black/45 px-2 py-1 text-center text-[10px] font-semibold text-white/90 backdrop-blur">
+                <span className="pointer-events-none absolute inset-x-2 bottom-2 text-balance rounded-lg bg-black/45 px-2 py-1 text-center text-[10px] font-semibold leading-tight text-white/90 backdrop-blur">
                   {cut.strategy}
                 </span>
               </div>
