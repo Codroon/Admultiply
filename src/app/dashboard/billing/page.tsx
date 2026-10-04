@@ -20,7 +20,7 @@ export default function BillingPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Billing &amp; Plan</h1>
+        <h1 className="display-xs">Billing &amp; Plan</h1>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
           {TOKEN_RULE}. Downloads are unlocked by your plan — never by tokens.
         </p>

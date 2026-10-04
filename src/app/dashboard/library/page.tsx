@@ -24,7 +24,7 @@ export default function LibraryPage() {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">My Library</h1>
+        <h1 className="display-xs">My Library</h1>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
           Every upload with its generated variations, grouped by source ad.
         </p>
