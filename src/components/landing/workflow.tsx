@@ -11,11 +11,9 @@ const stats = [
   { label: "Current Plan", value: "Pro", action: "Manage Billing" },
 ];
 
-const adThumbnails = [
-  "https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?auto=format&fit=crop&w=400&q=80",
-  "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&w=400&q=80",
-  "https://images.unsplash.com/photo-1581090700227-1e37b190418e?auto=format&fit=crop&w=400&q=80",
-];
+/* Frames pulled from a real 9:16 cut rather than stock photography, so the
+   thumbnails standing in for generated ads are actually vertical video. */
+const adThumbnails = ["/product/cut-1.jpg", "/product/cut-2.jpg", "/product/cut-3.jpg"];
 
 export function Workflow() {
   return (

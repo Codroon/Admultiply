@@ -117,7 +117,7 @@ export function Hero() {
         </motion.p>
       </div>
 
-      <div className="mt-16 sm:mt-20">
+      <div className="mt-10 sm:mt-14">
         <HeroMockup />
       </div>
     </section>
