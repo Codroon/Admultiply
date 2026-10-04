@@ -216,6 +216,68 @@ const emptyVersions = (): Pick<Variation, "versions" | "active" | "refinesUsed">
   refinesUsed: 0,
 });
 
+/* Reviving persisted state.
+
+   Anything in localStorage may have been written by an older build of the app
+   — which is the normal thing to happen to anyone who used the dashboard
+   before a deploy. Fields added since are simply absent from it, and the old
+   `JSON.parse(raw) as State` cast asserted they were there, so the gap stayed
+   invisible until something dereferenced one. `versions` arriving with the
+   refine feature crashed the results tabs on `v.versions.length` for exactly
+   this reason.
+
+   Spreading over a defaults object fixes the whole class of problem rather
+   than that one field: JSON has no `undefined`, so an absent key cannot
+   override its default, and every field added from here on is covered as long
+   as it gets a default below. */
+
+const VARIATION_DEFAULTS: Omit<Variation, "id"> = {
+  label: "",
+  strategy: "",
+  blurb: "",
+  src: "",
+  poster: "",
+  duration: "",
+  status: "ready",
+  downloaded: false,
+  versions: [],
+  active: 0,
+  refinesUsed: 0,
+  refineError: null,
+};
+
+const JOB_DEFAULTS: Omit<Job, "id"> = {
+  fileName: "",
+  sourceUrl: null,
+  sourcePoster: "",
+  duration: "",
+  category: "",
+  product: null,
+  stage: "ready",
+  substatus: "",
+  createdAt: 0,
+  variations: [],
+};
+
+function reviveVariation(raw: unknown): Variation {
+  const v = { ...VARIATION_DEFAULTS, ...(raw as Partial<Variation>) } as Variation;
+  const versions = Array.isArray(v.versions) ? v.versions : [];
+  return {
+    ...v,
+    versions,
+    // A stored index can outlive the list it pointed into.
+    active: Math.min(Math.max(v.active ?? 0, 0), Math.max(versions.length - 1, 0)),
+  };
+}
+
+function reviveJob(raw: unknown): Job {
+  const j = { ...JOB_DEFAULTS, ...(raw as Partial<Job>) } as Job;
+  return {
+    ...j,
+    variations: Array.isArray(j.variations) ? j.variations.map(reviveVariation) : [],
+  };
+}
+
 function placeholderVariations(jobId: string): Variation[] {
   return [0, 1, 2].map((i) => ({
     id: `${jobId}_v${i}`,
@@ -357,7 +419,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const saved = JSON.parse(raw) as State;
+        const parsed = JSON.parse(raw) as Partial<State>;
+        const saved: State = {
+          ...INITIAL_STATE,
+          ...parsed,
+          jobs: Array.isArray(parsed.jobs) ? parsed.jobs.map(reviveJob) : [],
+        };
         saved.jobs = saved.jobs.map((j) => ({
           ...j,
           sourceUrl: null, // objectURLs don't survive reloads
