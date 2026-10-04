@@ -77,6 +77,8 @@ export type Job = {
   sourcePoster: string;
   duration: string;
   category: string;
+  /** What the brief decided the ad is selling. null until understanding lands. */
+  product: string | null;
   stage: Stage;
   substatus: string;
   createdAt: number;
@@ -284,6 +286,7 @@ function fromApi(job: Job, api: ApiJob): Job {
     stage,
     substatus: api.error ?? api.detail ?? "",
     category: api.category ? (CATEGORY_LABEL[api.category] ?? api.category) : job.category,
+    product: api.product ?? job.product,
     variations,
   };
 }
@@ -317,6 +320,14 @@ const STOCK = [
 ];
 
 const CATEGORIES = ["E-commerce", "Fitness", "SaaS", "Beauty", "Food & Drink"];
+
+const DEMO_PRODUCT: Record<string, string> = {
+  "E-commerce": "a direct-to-consumer homeware range",
+  Fitness: "a strength-training app subscription",
+  SaaS: "a team scheduling tool",
+  Beauty: "a daily cleanser",
+  "Food & Drink": "a recipe meal-kit box",
+};
 
 const ANALYZE_LINES = [
   "Indexing scenes…",
@@ -515,7 +526,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   /* ---------------------------------------------------------------- demo */
 
   const startDemo = useCallback(
-    (id: string) => {
+    (id: string, category: string) => {
       let t = 1400;
       later(t, () => patchJob(id, { stage: "analyzing", substatus: ANALYZE_LINES[0] }));
       ANALYZE_LINES.slice(1).forEach((line) => {
@@ -523,7 +534,14 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         later(t, () => patchJob(id, { substatus: line }));
       });
       t += 1400;
-      later(t, () => patchJob(id, { stage: "planning", substatus: PLAN_LINES[0] }));
+      later(t, () =>
+        patchJob(id, {
+          stage: "planning",
+          substatus: PLAN_LINES[0],
+          // Understanding lands with planning, same as the live pipeline.
+          product: DEMO_PRODUCT[category] ?? "the product in your ad",
+        })
+      );
       PLAN_LINES.slice(1).forEach((line) => {
         t += 1100;
         later(t, () => patchJob(id, { substatus: line }));
@@ -571,6 +589,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         sourcePoster: "",
         duration: meta.duration,
         category: LIVE ? "Analysing…" : CATEGORIES[state.jobs.length % CATEGORIES.length],
+        product: null,
         stage: "queued",
         substatus: "Waiting for a worker…",
         createdAt: Date.now(),
@@ -606,7 +625,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, tokens: s.tokens - 1, jobs: [job, ...s.jobs] }));
 
       if (LIVE) startLive(job, file, opts);
-      else startDemo(id);
+      else startDemo(id, job.category);
       return "ok";
     },
     [state.tokens, state.jobs.length, startLive, startDemo]
