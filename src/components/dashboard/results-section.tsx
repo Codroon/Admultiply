@@ -110,6 +110,7 @@ function ResultsInner({ job, title }: { job: Job; title?: string }) {
               poster={active.poster}
               watermarked={!hd}
               duration={active.duration}
+              title={active.label || active.strategy}
               onPlay={markPreviewPlayed}
               className="aspect-[9/16] shadow-xl shadow-black/10 ring-1 ring-black/5 dark:ring-white/10"
             />

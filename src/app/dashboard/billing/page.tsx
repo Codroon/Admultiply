@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowUpRight, Check, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -80,9 +79,14 @@ export default function BillingPage() {
       {/* Plans, #plans is the target of every "Get more" / upgrade CTA */}
       <div id="plans" className="scroll-mt-24">
         <h2 className="mb-3 text-base font-bold">Choose the right plan for you</h2>
+        {/* Every tier gets its own card. Free and Plus used to share one,
+            behind a segmented toggle, which reads as a monthly/yearly switch
+            because that is what a toggle inside a pricing card means
+            everywhere else. It also buried Plus, which is the tier the whole
+            product points at: captions, HD downloads and re-cuts all say
+            "upgrade to Plus". Six cards sit three by two without it. */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <FreePlusCard />
-          {PLANS.filter((p) => p.id !== "free" && p.id !== "plus").map((p) => (
+          {PLANS.map((p) => (
             <PlanCard key={p.id} plan={p} />
           ))}
         </div>
@@ -112,49 +116,6 @@ export default function BillingPage() {
     );
   }
 
-  function FreePlusCard() {
-    return <FreePlusInner current={current.id} onPick={(id) => setPlan(id)} />;
-  }
-}
-
-function FreePlusInner({
-  current,
-  onPick,
-}: {
-  current: string;
-  onPick: (id: Plan["id"]) => void;
-}) {
-  const pair = PLANS.filter((p) => p.id === "free" || p.id === "plus");
-  const [tab, setTab] = useState(0);
-  const p = pair[tab];
-
-  return (
-    <Card className="flex flex-col p-5">
-      <div className="mb-1 flex rounded-full bg-black/5 p-0.5 dark:bg-white/10">
-        {pair.map((x, i) => (
-          <button
-            key={x.id}
-            onClick={() => setTab(i)}
-            className={`relative flex-1 rounded-full py-1 text-xs font-semibold transition-colors ${
-              tab === i
-                ? "text-white"
-                : "text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]"
-            }`}
-          >
-            {tab === i && (
-              <motion.span
-                layoutId="billingFreePlus"
-                transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                className="absolute inset-0 rounded-full bg-brand-500"
-              />
-            )}
-            <span className="relative z-10">{x.name}</span>
-          </button>
-        ))}
-      </div>
-      <PlanBody p={p} isCurrent={p.id === current} onPick={() => onPick(p.id)} />
-    </Card>
-  );
 }
 
 function PlanBody({
@@ -168,7 +129,10 @@ function PlanBody({
 }) {
   return (
     <div className="mt-3 flex flex-1 flex-col">
-      <div className="flex items-baseline gap-1">
+      {/* The cards showed a price and never said which plan it was for. You
+          could only work it out from the button. */}
+      <p className="text-sm font-bold">{p.name}</p>
+      <div className="mt-0.5 flex items-baseline gap-1">
         <span className="text-3xl font-bold tracking-tight">${p.price}</span>
         <span className="text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
           /mo
