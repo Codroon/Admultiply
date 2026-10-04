@@ -1,18 +1,24 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Captions, Clapperboard, Coins, RefreshCcw, UploadCloud } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Coins, UploadCloud } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { useDashboard } from "./dashboard-provider";
 import { UploadBay } from "./upload-bay";
+import { UploadConfirm } from "./upload-confirm";
 
 const ACCEPTED = ["video/mp4", "video/quicktime", "video/x-msvideo"];
 const MAX_SECONDS = 95; // spec: 1 min 30 s (+ small grace)
 
-type Picked = { file: File; duration: number; width: number; height: number };
+type Picked = {
+  file: File;
+  /** Kept alive so the confirm step can show the video, not just its name. */
+  url: string;
+  duration: number;
+  width: number;
+  height: number;
+};
 
 const fmtDuration = (s: number) =>
   `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
@@ -30,6 +36,22 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
   // try to detect it. Paid feature, like HD downloads.
   const [captions, setCaptions] = useState(false);
 
+  /* The preview URL outlives the metadata probe now, so it has to be released
+     by hand when it is replaced, submitted, or the screen goes away. Held in a
+     ref rather than read back out of state, because a state updater can run
+     twice in development and revoking a URL that is still on screen would
+     blank the preview. */
+  const previewUrl = useRef<string | null>(null);
+
+  const releasePreview = () => {
+    if (previewUrl.current) {
+      URL.revokeObjectURL(previewUrl.current);
+      previewUrl.current = null;
+    }
+  };
+
+  useEffect(() => releasePreview, []);
+
   const inspect = (file: File) => {
     setError(null);
     if (!ACCEPTED.includes(file.type) && !/\.(mp4|mov|avi)$/i.test(file.name)) {
@@ -42,14 +64,16 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
     probe.preload = "metadata";
     probe.onloadedmetadata = () => {
       const { duration, videoWidth, videoHeight } = probe;
-      URL.revokeObjectURL(url);
       if (duration > MAX_SECONDS) {
+        URL.revokeObjectURL(url);
         setError(
           `This video is ${fmtDuration(duration)}. The maximum is 1:30, so trim it and try again.`
         );
         return;
       }
-      setPicked({ file, duration, width: videoWidth, height: videoHeight });
+      releasePreview();
+      previewUrl.current = url;
+      setPicked({ file, url, duration, width: videoWidth, height: videoHeight });
     };
     probe.onerror = () => {
       URL.revokeObjectURL(url);
@@ -70,25 +94,29 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
       { captions: hd && captions }
     );
     if (res === "ok") {
+      // startJob makes its own objectURL for the job, so this one is done with.
+      releasePreview();
       setPicked(null);
       toast("Upload started, 1 token held", "info");
     }
   };
 
-  return (
-    <section className={compact ? "" : "pt-2"}>
-      {!compact && (
-        <div className="mb-5 text-center">
-          <h2 className="display-xs">
-            Upload your winning ad
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-            Turn one best-converting ad into three new micro-ads to test, convert
-            and extend ROI.
-          </p>
-        </div>
-      )}
+  const dragProps = {
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragging(true);
+    },
+    onDragLeave: () => setDragging(false),
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragging(false);
+      const f = e.dataTransfer.files?.[0];
+      if (f) inspect(f);
+    },
+  };
 
+  return (
+    <section>
       <input
         ref={inputRef}
         type="file"
@@ -101,136 +129,58 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
         }}
       />
 
-      {!picked ? (
-        compact ? (
-          /* Once there is work on the page the bay would dominate it, so the
-             repeat-upload affordance collapses to a single bar. */
-          <motion.button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragging(false);
-              const f = e.dataTransfer.files?.[0];
-              if (f) inspect(f);
-            }}
-            whileHover={{ y: -1 }}
-            transition={{ duration: 0.2 }}
-            className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors ${
-              dragging
-                ? "border-brand-500 bg-brand-500/[0.06]"
-                : "border-[var(--color-border-subtle)] bg-white hover:border-brand-500/50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-brand-500/40"
-            }`}
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500">
-              <UploadCloud size={18} />
+      {picked ? (
+        <UploadConfirm
+          picked={picked}
+          hd={hd}
+          captions={captions}
+          tokens={tokens}
+          onToggleCaptions={() => setCaptions((c) => !c)}
+          onUpgrade={openUpgrade}
+          onReplace={() => inputRef.current?.click()}
+          onSubmit={submit}
+          fmtDuration={fmtDuration}
+          fmtSize={fmtSize}
+        />
+      ) : compact ? (
+        /* Once there is work on the page the full bay would dominate it, but
+           the main action of the product should still not be a thin strip. */
+        <motion.button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          {...dragProps}
+          whileHover={{ y: -1 }}
+          transition={{ duration: 0.2 }}
+          className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-colors sm:p-5 ${
+            dragging
+              ? "border-brand-500 bg-brand-500/[0.06]"
+              : "border-[var(--color-border-subtle)] bg-white hover:border-brand-500/50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-brand-500/40"
+          }`}
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500">
+            <UploadCloud size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold sm:text-base">
+              {dragging ? "Drop it, we'll take it from here" : "Multiply another ad"}
             </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold">
-                {dragging ? "Drop it, we'll take it from here" : "Multiply another ad"}
-              </span>
-              <span className="block text-[11px] text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-                MP4, MOV or AVI · up to 1 min 30 s
-              </span>
+            <span className="mt-0.5 block text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
+              MP4, MOV or AVI · up to 1 min 30 s
             </span>
-            <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-brand-500/10 px-3 py-1.5 text-[11px] font-bold text-brand-600 ring-1 ring-brand-500/20 dark:text-brand-400 sm:inline-flex">
-              <Coins size={11} />1 token = 3 variations
-            </span>
-          </motion.button>
-        ) : (
-          <UploadBay
-            dragging={dragging}
-            onPick={() => inputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragging(false);
-              const f = e.dataTransfer.files?.[0];
-              if (f) inspect(f);
-            }}
-          />
-        )
+          </span>
+          <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-brand-500/30 sm:inline-flex">
+            Choose a video
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-500/10 px-2.5 py-1.5 text-[11px] font-bold text-brand-600 ring-1 ring-brand-500/20 dark:text-brand-400 sm:hidden">
+            <Coins size={11} />1
+          </span>
+        </motion.button>
       ) : (
-        <Card className="p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500">
-              <Clapperboard size={22} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{picked.file.name}</p>
-              <p className="mt-0.5 text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-                {fmtSize(picked.file.size)} · {picked.width}×{picked.height} ·{" "}
-                {fmtDuration(picked.duration)}
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={() => inputRef.current?.click()}
-              >
-                <RefreshCcw size={14} />
-                Replace
-              </Button>
-              <Button size="md" onClick={submit}>
-                Multiply this ad · 1 token
-                <ArrowRight size={14} />
-              </Button>
-            </div>
-          </div>
-
-          {/* Options, captions are a paid feature, gated like HD downloads */}
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border-subtle)] pt-4 dark:border-[var(--color-border-dark-subtle)]">
-            <div className="flex items-start gap-3">
-              <Captions
-                size={18}
-                className={`mt-0.5 shrink-0 ${
-                  hd ? "text-brand-500" : "text-[var(--color-ink-muted)] opacity-50"
-                }`}
-              />
-              <div>
-                <p className="flex items-center gap-2 text-sm font-semibold">
-                  Add captions
-                  {!hd && (
-                    <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400">
-                      Plus &amp; up
-                    </span>
-                  )}
-                </p>
-                <p className="mt-0.5 max-w-md text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-                  {hd
-                    ? "Word-synced captions burned into each clip. Leave off if your ad already has them."
-                    : "Word-synced captions burned into each clip. Upgrade to switch this on."}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={hd && captions}
-              aria-label="Add captions"
-              onClick={() => (hd ? setCaptions((c) => !c) : openUpgrade())}
-              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                hd && captions ? "bg-brand-500" : "bg-black/15 dark:bg-white/20"
-              } ${hd ? "" : "cursor-pointer opacity-60"}`}
-            >
-              <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
-                  hd && captions ? "left-[22px]" : "left-0.5"
-                }`}
-              />
-            </button>
-          </div>
-        </Card>
+        <UploadBay
+          dragging={dragging}
+          onPick={() => inputRef.current?.click()}
+          {...dragProps}
+        />
       )}
 
       {error && (

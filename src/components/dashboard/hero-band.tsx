@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowUpRight, Check } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { getPlan, upgradeCta } from "@/lib/plans";
+import { FlowRail } from "./flow-rail";
 import { useDashboard } from "./dashboard-provider";
 
 function useGreeting() {
@@ -20,18 +21,12 @@ function useGreeting() {
 /* The home stage: brand ambience + time-aware greeting + onboarding pills.
    Replaces the generic "welcome card". */
 export function HeroBand() {
-  const { userName, jobs, previewPlayed, anyDownloaded } = useDashboard();
+  const { userName, jobs } = useDashboard();
   const greeting = useGreeting();
-
-  const steps = [
-    { label: "Upload your winning ad", done: jobs.length > 0 },
-    { label: "Preview your 3 variations", done: previewPlayed },
-    { label: "Download your favourites", done: anyDownloaded },
-  ];
-  const allDone = steps.every((s) => s.done);
+  const started = jobs.length > 0;
 
   return (
-    <section className="relative isolate overflow-hidden rounded-3xl px-6 py-8 sm:px-8 sm:py-10">
+    <section className="relative isolate overflow-hidden rounded-3xl px-6 py-7 sm:px-8 sm:py-8">
       {/* Ambient brand background, same language as the marketing hero */}
       <div className="pointer-events-none absolute inset-0 -z-10 rounded-3xl bg-white dark:bg-[var(--color-surface-dark-muted)]" />
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-3xl">
@@ -65,42 +60,19 @@ export function HeroBand() {
         transition={{ duration: 0.5, delay: 0.12 }}
         className="mt-2 max-w-lg text-sm text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]"
       >
-        {allDone
-          ? "Your winning creatives are multiplying. Keep the streak going."
-          : "Let's turn your best-performing ad into three performance-ready micro-ads."}
+        {started
+          ? "Your winning creatives are multiplying."
+          : "Turn one winning ad into three vertical micro-ads."}
       </motion.p>
 
-      {/* Onboarding as inline progress pills */}
-      {!allDone && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.22 }}
-          className="mt-5 flex flex-wrap items-center gap-2"
-        >
-          {steps.map((s, i) => (
-            <span
-              key={s.label}
-              className={`inline-flex items-center gap-1.5 rounded-full py-1.5 pl-1.5 pr-3.5 text-xs font-semibold ring-1 transition-colors ${
-                s.done
-                  ? "bg-emerald-500/10 text-emerald-600 ring-emerald-500/20 dark:text-emerald-400"
-                  : "bg-white/70 text-[var(--color-ink-muted)] ring-black/10 backdrop-blur dark:bg-white/5 dark:text-[var(--color-ink-dark-muted)] dark:ring-white/10"
-              }`}
-            >
-              <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
-                  s.done
-                    ? "bg-emerald-500 text-white"
-                    : "bg-brand-500/15 text-brand-600 dark:text-brand-400"
-                }`}
-              >
-                {s.done ? <Check size={11} strokeWidth={3.5} /> : i + 1}
-              </span>
-              {s.label}
-            </span>
-          ))}
-        </motion.div>
-      )}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.22 }}
+        className="mt-5 overflow-x-auto pb-1"
+      >
+        <FlowRail />
+      </motion.div>
     </section>
   );
 }

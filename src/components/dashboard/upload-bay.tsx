@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, Coins, Plus } from "lucide-react";
+import { ArrowRight, Coins, Plus, UploadCloud } from "lucide-react";
 
 /* The upload moment.
 
@@ -62,7 +62,7 @@ export function UploadBay({
 
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:gap-6">
         {/* What they bring */}
-        <div className="sm:w-[40%]">
+        <div className="mx-auto w-[72%] sm:mx-0 sm:w-[40%]">
           <SlotLabel>Your winning ad</SlotLabel>
           <div
             className={`relative flex aspect-video items-center justify-center rounded-xl border border-dashed transition-colors ${
@@ -81,7 +81,7 @@ export function UploadBay({
               <Plus size={20} strokeWidth={2.5} />
             </span>
             <span className="absolute bottom-2 left-0 right-0 text-center text-[10px] font-medium text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-              16:9 · up to 1:30
+              up to 1 min 30 s
             </span>
           </div>
         </div>
@@ -100,7 +100,7 @@ export function UploadBay({
         {/* What they get */}
         <div className="min-w-0 flex-1">
           <SlotLabel>Three micro-ads, three angles</SlotLabel>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="mx-auto grid max-w-[270px] grid-cols-3 gap-2 sm:max-w-none">
             {[0, 1, 2].map((i) => (
               <motion.div
                 key={i}
@@ -131,27 +131,28 @@ export function UploadBay({
         </div>
       </div>
 
-      {/* The commitment, stated plainly */}
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border-subtle)] pt-4 dark:border-white/10">
-        <p className="text-sm font-semibold">
-          {dragging ? (
-            <span className="text-brand-500">
-              Drop it, we&apos;ll take it from here
-            </span>
-          ) : (
-            <>
-              Drop your ad here, or{" "}
-              <span className="text-brand-500 underline decoration-brand-500/30 underline-offset-4">
-                browse
-              </span>
-              <span className="ml-2 font-normal text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-                MP4, MOV or AVI
-              </span>
-            </>
-          )}
-        </p>
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand-500/10 px-3.5 py-1.5 text-[11px] font-bold text-brand-600 ring-1 ring-brand-500/20 dark:text-brand-400">
-          <Coins size={11} />1 token = 3 variations
+      {/* The action, and what it costs.
+
+          This panel is itself the button, so the control below is a span
+          dressed as one rather than a nested button, which would be invalid.
+          It is here because "drop a file or click anywhere" is an instruction,
+          not an affordance, and the client's first note about this screen was
+          that there was nothing on it that looked like the thing to press. */}
+      <div className="mt-5 flex flex-col gap-3 border-t border-[var(--color-border-subtle)] pt-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+        <span
+          className={`inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold text-white shadow-[0_8px_24px_-10px_rgba(249,115,22,0.9)] transition-colors ${
+            dragging ? "bg-brand-600" : "bg-brand-500 group-hover:bg-brand-600"
+          }`}
+        >
+          <UploadCloud size={16} />
+          {dragging ? "Drop it, we'll take it from here" : "Choose your video"}
+        </span>
+
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
+          <span>or drop it anywhere in this panel · MP4, MOV or AVI</span>
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand-500/10 px-3 py-1.5 text-[11px] font-bold text-brand-600 ring-1 ring-brand-500/20 dark:text-brand-400">
+            <Coins size={11} />1 token = 3 variations
+          </span>
         </span>
       </div>
     </motion.button>

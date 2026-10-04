@@ -20,17 +20,20 @@ export default function DashboardHome() {
 
       {isZeroState ? (
         <>
-          <Showcase />
+          {/* The one thing you came here to do, before the examples of other
+              people having done it. */}
           <UploadHero />
+          <Showcase />
         </>
       ) : (
         <>
-          <StatStrip />
           {activeJob ? <ProcessingCard job={activeJob} /> : <UploadHero compact />}
           {latestReady && !activeJob && <ResultsSection job={latestReady} />}
           {latestReady && activeJob && (
             <ResultsSection job={latestReady} title="Your previous micro-ads" />
           )}
+          {/* Counters report status. They sit under the work, not above it. */}
+          <StatStrip />
         </>
       )}
     </div>
