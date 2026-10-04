@@ -21,7 +21,7 @@ export function WaitlistFlow() {
   };
 
   const handleSurveyComplete = async (answers: SurveyAnswers) => {
-    // Best-effort enrichment — the email is already stored; never block the
+    // Best-effort enrichment, the email is already stored; never block the
     // success moment on this call.
     try {
       await fetch("/api/waitlist", {
@@ -37,7 +37,7 @@ export function WaitlistFlow() {
 
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden">
-      {/* Ambient background — same visual vocabulary as the landing hero */}
+      {/* Ambient background, same visual vocabulary as the landing hero */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-1/2 top-[-10%] h-[420px] w-[680px] -translate-x-1/2 rounded-full bg-brand-500/[0.14] blur-[140px]" />
         <div className="absolute bottom-[-10%] right-[-5%] h-72 w-72 rounded-full bg-amber-400/10 blur-[120px]" />

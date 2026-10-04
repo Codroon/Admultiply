@@ -12,7 +12,7 @@ import {
 /* The workspace is dark unless the user says otherwise.
 
    Not a style preference: this screen's job is to show footage, and footage
-   only reads honestly against a neutral dark surround — it is why every
+   only reads honestly against a neutral dark surround, it is why every
    editing tool from Premiere to CapCut is dark. A light-grey SaaS dashboard
    around a video player makes the video look washed out and the product look
    like a CRM.
@@ -103,8 +103,8 @@ export function useWorkspaceTheme() {
   return ctx;
 }
 
-/* The element that actually carries the class. Everything in the dashboard —
-   shell, modal, toasts — renders inside it, and nothing here uses a portal, so
+/* The element that actually carries the class. Everything in the dashboard, 
+   shell, modal, toasts, renders inside it, and nothing here uses a portal, so
    one wrapper covers the whole workspace.
 
    It also has to restate the base text and background colours. Globally those

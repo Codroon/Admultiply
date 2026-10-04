@@ -242,7 +242,7 @@ function JobsView() {
             <EmptyState
               icon={<Film size={20} />}
               title="No jobs match"
-              detail="Nothing in this filter right now — which, for failures, is the good outcome."
+              detail="Nothing in this filter right now, which, for failures, is the good outcome."
             />
           }
         />
@@ -348,7 +348,7 @@ function JobDrawer({ job, onClose }: { job: AdminJob; onClose: () => void }) {
           <Badge tone="neutral">{job.category}</Badge>
         </div>
 
-        {/* Error first — it's why you opened this */}
+        {/* Error first, it's why you opened this */}
         {job.stage === "failed" && job.errorCode && (
           <div className="rounded-xl bg-red-500/[0.06] p-3.5 ring-1 ring-red-500/20">
             <p className="flex items-center gap-1.5 text-[12px] font-bold text-red-600 dark:text-red-400">
@@ -365,7 +365,7 @@ function JobDrawer({ job, onClose }: { job: AdminJob; onClose: () => void }) {
                 </span>
               ) : (
                 <span className="text-red-600 dark:text-red-400">
-                  Token still held — the customer paid for nothing
+                  Token still held, the customer paid for nothing
                 </span>
               )}
             </p>
@@ -417,7 +417,7 @@ function JobDrawer({ job, onClose }: { job: AdminJob; onClose: () => void }) {
                         {STAGE_LABEL[s.stage]}
                       </span>
                       <span className="text-[11px] tabular-nums text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-                        {s.status === "pending" ? "—" : fmtElapsed(s.durationMs)}
+                        {s.status === "pending" ? ", " : fmtElapsed(s.durationMs)}
                       </span>
                     </div>
                   </div>

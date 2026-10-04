@@ -82,7 +82,7 @@ export default function WaitlistPage() {
       sortValue: (w) => w.company ?? "",
       render: (w) => (
         <span className="block truncate text-[12px] text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-          {w.company ?? "—"}
+          {w.company ?? ", "}
         </span>
       ),
     },
@@ -142,7 +142,7 @@ export default function WaitlistPage() {
         <StatTile
           label="Qualified leads"
           value={fmtNum(
-            surveyed.filter((w) => w.spend === "$5k–20k / mo" || w.spend === "$20k+ / mo").length
+            surveyed.filter((w) => w.spend === "$5k, 20k / mo" || w.spend === "$20k+ / mo").length
           )}
           hint="$5k+ monthly ad spend"
           tone="success"
@@ -230,7 +230,7 @@ export default function WaitlistPage() {
 
       <p className="text-[11px] leading-relaxed text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
         Live data source: the Supabase <code className="font-mono">waitlist</code> table,
-        already collecting from the pre-launch homepage. This screen reads it directly —
+        already collecting from the pre-launch homepage. This screen reads it directly, 
         no new pipeline needed.
       </p>
     </div>
@@ -238,5 +238,5 @@ export default function WaitlistPage() {
 }
 
 function Dash() {
-  return <span className="text-[var(--color-ink-muted)]">—</span>;
+  return <span className="text-[var(--color-ink-muted)]">, </span>;
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, ExternalLink, Sparkles } from "lucide-react";
+import { ArrowUpRight, Check, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,7 +22,7 @@ export default function BillingPage() {
       <div>
         <h1 className="display-xs">Billing &amp; Plan</h1>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-          {TOKEN_RULE}. Downloads are unlocked by your plan — never by tokens.
+          {TOKEN_RULE}. Downloads are unlocked by your plan, never by tokens.
         </p>
       </div>
 
@@ -47,11 +47,11 @@ export default function BillingPage() {
                     ?.scrollIntoView({ behavior: "smooth", block: "start" })
                 }
               >
-                <Sparkles size={14} />
                 {cta}
+                <ArrowUpRight size={14} />
               </Button>
             )}
-            {/* Nothing to manage until there's a subscription — the Stripe
+            {/* Nothing to manage until there's a subscription, the Stripe
                 portal would be a dead end for a Free user. */}
             {current.id !== "free" && (
               <Button
@@ -77,7 +77,7 @@ export default function BillingPage() {
         </div>
       </Card>
 
-      {/* Plans — #plans is the target of every "Get more" / upgrade CTA */}
+      {/* Plans, #plans is the target of every "Get more" / upgrade CTA */}
       <div id="plans" className="scroll-mt-24">
         <h2 className="mb-3 text-base font-bold">Choose the right plan for you</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -87,7 +87,7 @@ export default function BillingPage() {
           ))}
         </div>
         <p className="mt-4 text-center text-[11px] text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-          Plan changes here are simulated for the demo — Stripe checkout arrives
+          Plan changes here are simulated for the demo. Stripe checkout arrives
           with the backend.
         </p>
       </div>

@@ -2,7 +2,7 @@
 
 /* Bar chart with an actual y-axis, gridlines and hover readout.
 
-   The Figma version had none of those — a bar chart you can't read a value
+   The Figma version had none of those, a bar chart you can't read a value
    off is decoration, not instrumentation. Failures stack on top of successes
    so a bad day is visible at a glance rather than hidden in an average. */
 
@@ -28,7 +28,7 @@ export function DailyBars({
 
   return (
     <div className="relative">
-      {/* Hover readout — pinned so it never shifts the layout */}
+      {/* Hover readout, pinned so it never shifts the layout */}
       <div className="mb-2 flex h-9 items-start justify-between gap-3">
         {active ? (
           <div>
@@ -139,7 +139,7 @@ function niceStep(max: number) {
 
 /* -------------------------------------------------------------------------- */
 
-/** Horizontal share bar — provider cost split, plan mix, strategy win-rates. */
+/** Horizontal share bar, provider cost split, plan mix, strategy win-rates. */
 export function ShareBar({
   segments,
 }: {
@@ -155,7 +155,7 @@ export function ShareBar({
           animate={{ width: `${(s.value / total) * 100}%` }}
           transition={{ duration: 0.5, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
           className={s.color}
-          title={`${s.label} — ${((s.value / total) * 100).toFixed(1)}%`}
+          title={`${s.label}, ${((s.value / total) * 100).toFixed(1)}%`}
         />
       ))}
     </div>

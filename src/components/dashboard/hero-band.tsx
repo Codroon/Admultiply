@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Check, Sparkles } from "lucide-react";
+import { ArrowUpRight, Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { getPlan, upgradeCta } from "@/lib/plans";
 import { useDashboard } from "./dashboard-provider";
@@ -32,7 +32,7 @@ export function HeroBand() {
 
   return (
     <section className="relative isolate overflow-hidden rounded-3xl px-6 py-8 sm:px-8 sm:py-10">
-      {/* Ambient brand background — same language as the marketing hero */}
+      {/* Ambient brand background, same language as the marketing hero */}
       <div className="pointer-events-none absolute inset-0 -z-10 rounded-3xl bg-white dark:bg-[var(--color-surface-dark-muted)]" />
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-3xl">
         <div className="absolute -top-24 left-1/4 h-64 w-96 rounded-full bg-brand-500/[0.16] blur-[90px]" />
@@ -105,7 +105,7 @@ export function HeroBand() {
   );
 }
 
-/* Compact outcome stats — shown once the user has work. */
+/* Compact outcome stats, shown once the user has work. */
 export function StatStrip() {
   const { jobs, tokens, plan } = useDashboard();
   const ready = jobs.filter((j) => j.stage === "ready").length;
@@ -135,12 +135,12 @@ export function StatStrip() {
         {cta ? (
           <Link
             href="/dashboard/billing#plans"
-            /* narrow card on mobile — drop the icon and tighten the type so the
+            /* narrow card on mobile, drop the icon and tighten the type so the
                longest label ("Upgrade to Business") never wraps */
             className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-brand-500 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-sm shadow-brand-500/30 transition-all hover:bg-brand-600 active:scale-[0.98] sm:text-[11px]"
           >
-            <Sparkles size={11} className="hidden shrink-0 sm:block" />
             {cta}
+            <ArrowUpRight size={11} className="hidden shrink-0 sm:block" />
           </Link>
         ) : (
           <Link

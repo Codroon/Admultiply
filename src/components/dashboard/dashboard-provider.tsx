@@ -25,7 +25,7 @@ import { useToast } from "@/components/ui/toast";
 
 export type Stage = "queued" | "analyzing" | "planning" | "rendering" | "ready" | "failed";
 
-/* A refine never replaces a clip — it adds a version. Nothing a customer
+/* A refine never replaces a clip. It adds a version. Nothing a customer
    liked is destroyed by asking for a change, and they can switch back. */
 export type VariationVersion = {
   n: number;
@@ -73,7 +73,7 @@ export const MAX_REFINES = 3;
 export type Job = {
   id: string;
   fileName: string;
-  sourceUrl: string | null; // objectURL — lost on reload by design
+  sourceUrl: string | null; // objectURL, lost on reload by design
   sourcePoster: string;
   duration: string;
   category: string;
@@ -219,7 +219,7 @@ const emptyVersions = (): Pick<Variation, "versions" | "active" | "refinesUsed">
 /* Reviving persisted state.
 
    Anything in localStorage may have been written by an older build of the app
-   — which is the normal thing to happen to anyone who used the dashboard
+ , which is the normal thing to happen to anyone who used the dashboard
    before a deploy. Fields added since are simply absent from it, and the old
    `JSON.parse(raw) as State` cast asserted they were there, so the gap stayed
    invisible until something dereferenced one. `versions` arriving with the
@@ -395,7 +395,7 @@ const ANALYZE_LINES = [
   "Indexing scenes…",
   "Found 6 key scenes",
   "Transcribing audio…",
-  "Transcript complete — 214 words",
+  "Transcript complete, 214 words",
 ];
 const PLAN_LINES = [
   "Studying your winning formula…",
@@ -525,7 +525,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           }));
           if (api.stage === "ready") {
             // A refine runs on a job that is already "ready", so stage alone
-            // isn't enough to stop polling — and the completion toast must
+            // isn't enough to stop polling, and the completion toast must
             // only fire once, not again after every re-cut.
             if (!announced.current.has(jobId)) {
               announced.current.add(jobId);
@@ -537,12 +537,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             }
           } else if (api.stage === "failed") {
             stopPolling(jobId);
-            // Token reserved at submit comes back on failure — mirrors the ledger.
+            // Token reserved at submit comes back on failure, mirrors the ledger.
             setState((s) => ({ ...s, tokens: s.tokens + 1 }));
             toast(api.error ?? "Processing failed", "error");
           }
         } catch {
-          /* network blip — try again next tick */
+          /* network blip, try again next tick */
         }
       };
       tick();
@@ -581,7 +581,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           setState((s) => ({ ...s, tokens: s.tokens + 1 }));
           toast(
             e.message.includes("Failed to fetch")
-              ? "Can't reach the pipeline — is the API running on port 8000?"
+              ? "Can't reach the pipeline. Is the API running on port 8000?"
               : e.message,
             "error"
           );
@@ -688,7 +688,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             })),
       };
 
-      // Reserve the token at submit (refunded on failure) — mirrors the ledger.
+      // Reserve the token at submit (refunded on failure), mirrors the ledger.
       setState((s) => ({ ...s, tokens: s.tokens - 1, jobs: [job, ...s.jobs] }));
 
       if (LIVE) startLive(job, file, opts);
@@ -705,7 +705,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         setUpgradeOpen(true);
         return;
       }
-      // The flywheel vote — in production this hits the events table + PostHog.
+      // The flywheel vote, in production this hits the events table + PostHog.
       console.info("[event] variation_downloaded", { jobId, variationId, kind, plan: state.plan });
 
       const v = state.jobs.find((j) => j.id === jobId)?.variations.find((x) => x.id === variationId);
@@ -722,7 +722,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             a.click();
             URL.revokeObjectURL(url);
           })
-          .catch(() => toast("Download failed — try again", "error"));
+          .catch(() => toast("Download failed, try again", "error"));
       }
 
       setState((s) => ({
@@ -747,7 +747,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const refine = useCallback(
     (jobId: string, variationId: string, intent: string, note: string) => {
       // Gated on the plan, exactly like HD downloads. When real auth lands
-      // this reads the real plan instead of the demo one — nothing else changes.
+      // this reads the real plan instead of the demo one, nothing else changes.
       if (!getPlan(state.plan).hd) {
         setUpgradeOpen(true);
         return;

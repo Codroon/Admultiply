@@ -2,7 +2,7 @@
 
 /* Confirmation for anything an operator can't undo.
 
-   `confirmWord` adds a typed check — used for suspension, where a misclick
+   `confirmWord` adds a typed check, used for suspension, where a misclick
    locks a paying customer out of the product. Ordinary confirmations skip it;
    asking people to type on every action just trains them to stop reading.
 

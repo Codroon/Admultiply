@@ -12,7 +12,7 @@ import { Footer } from "@/components/landing/footer";
 /* Full landing page, parked here pre-launch for internal/client review.
    The public homepage is the waitlist until launch. */
 export const metadata: Metadata = {
-  title: "AdMultiply — Preview",
+  title: "AdMultiply, Preview",
   robots: { index: false, follow: false },
 };
 

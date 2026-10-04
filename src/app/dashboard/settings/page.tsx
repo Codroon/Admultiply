@@ -90,7 +90,7 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* Demo-only controls — remove before launch */}
+      {/* Demo-only controls, remove before launch */}
       <Card className="border border-dashed border-brand-500/30 bg-brand-500/[0.03] p-5">
         <h2 className="text-sm font-bold text-brand-600 dark:text-brand-400">
           Demo controls
@@ -106,7 +106,7 @@ export default function SettingsPage() {
           >
             {PLANS.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name} — ${p.price}/mo
+                {p.name} · ${p.price}/mo
               </option>
             ))}
           </select>

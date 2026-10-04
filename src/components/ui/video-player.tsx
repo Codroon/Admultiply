@@ -6,7 +6,7 @@ import { LogoMark } from "@/components/logo";
 
 /* 9:16 (or any aspect) video card player with poster, tap-to-play and an
    optional simulated watermark overlay (the real watermark is burned in by
-   FFmpeg at render time — this overlay exists only for the mocked demo). */
+   FFmpeg at render time, this overlay exists only for the mocked demo). */
 export function VideoPlayer({
   src,
   poster,

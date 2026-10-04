@@ -1,6 +1,6 @@
 "use client";
 
-/* ⌘K — jump to any user, job or screen without touching the mouse.
+/* ⌘K, jump to any user, job or screen without touching the mouse.
 
    This is the difference between an admin panel and a *tool*. The support
    loop is "customer emails → find them → find their job → fix it", and typing

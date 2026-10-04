@@ -1,7 +1,7 @@
 /* ---------------------------------------------------------------------------
    Derived metrics.
 
-   Pure functions over the current dataset — no hidden state, so the same
+   Pure functions over the current dataset, no hidden state, so the same
    figures hold after an admin refunds a token or retries a job. In production
    each of these becomes a SQL query (or a materialised view once the tables
    get big); the shapes below are what the API should return.
@@ -20,7 +20,7 @@ import {
 
 const DAY = 86_400_000;
 
-/** Verified baseline from docs/backend-mvp-plan.md — the line margins depend on. */
+/** Verified baseline from docs/backend-mvp-plan.md, the line margins depend on. */
 export const COST_BASELINE_CENTS = 15;
 
 const startOfDay = (t: number) => {
@@ -35,7 +35,7 @@ export { CYCLE_START };
 /* Per-user                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/** Balance is SUM(delta) for the cycle — never a stored column. */
+/** Balance is SUM(delta) for the cycle, never a stored column. */
 export function balanceFor(ledger: LedgerEntry[], userId: string): number {
   return ledger
     .filter((e) => e.userId === userId && e.createdAt >= CYCLE_START)
@@ -140,7 +140,7 @@ export function overviewStats(
     ? billable7.reduce((s, j) => s + j.costCents, 0) / billable7.length
     : 0;
 
-  // Failed jobs that never returned the customer's token — silent revenue bug.
+  // Failed jobs that never returned the customer's token, silent revenue bug.
   const unrefunded = jobs.filter((j) => j.stage === "failed" && !j.tokenRefunded);
 
   const alerts: Alert[] = [];
@@ -249,7 +249,7 @@ export function costStats(jobs: AdminJob[], users: AdminUser[], ledger: LedgerEn
     .filter((j) => freeUserIds.has(j.userId))
     .reduce((s, j) => s + j.costCents, 0);
 
-  // Heaviest spenders — spots abuse before the invoice does.
+  // Heaviest spenders, spots abuse before the invoice does.
   const perUser = new Map<string, { cents: number; jobs: number }>();
   for (const job of cycle) {
     const cur = perUser.get(job.userId) ?? { cents: 0, jobs: 0 };
@@ -280,7 +280,7 @@ export function costStats(jobs: AdminJob[], users: AdminUser[], ledger: LedgerEn
     freeBurn,
     freeUsers: freeUserIds.size,
     topSpenders,
-    /* Cost of a wasted job — money spent on renders nobody kept. */
+    /* Cost of a wasted job, money spent on renders nobody kept. */
     wasted: cycle
       .filter((j) => j.stage === "failed")
       .reduce((s, j) => s + j.costCents, 0),
@@ -338,7 +338,7 @@ export function flywheelStats(jobs: AdminJob[]) {
   const totalVariations = ready.length * 3;
   const totalDownloaded = ready.flatMap((j) => j.variations).filter((v) => v.downloadedAt).length;
 
-  // Jobs where the user kept at least one variation — the real quality signal.
+  // Jobs where the user kept at least one variation, the real quality signal.
   const jobsWithAKeeper = ready.filter((j) => j.variations.some((v) => v.downloadedAt)).length;
 
   return {
@@ -354,7 +354,7 @@ export function flywheelStats(jobs: AdminJob[]) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Revenue (display-only — Stripe stays the source of truth)                  */
+/* Revenue (display-only, Stripe stays the source of truth)                  */
 /* -------------------------------------------------------------------------- */
 
 export function revenueStats(users: AdminUser[]) {

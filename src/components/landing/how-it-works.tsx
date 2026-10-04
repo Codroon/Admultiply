@@ -3,12 +3,11 @@
 import { motion } from "framer-motion";
 import {
   Upload,
-  BrainCircuit,
+  Eye,
   Layers,
   Rocket,
   Check,
   Play,
-  Sparkles,
 } from "lucide-react";
 import { viewportOnce } from "@/lib/motion";
 
@@ -42,7 +41,7 @@ const rows: Row[] = [
   },
   {
     label: "Step 2 · Analyse",
-    icon: BrainCircuit,
+    icon: Eye,
     heading: "AdMultiply AI identifies your winning formula",
     bullets: [
       "Learns what actually makes your ad perform",
@@ -96,7 +95,6 @@ export function HowItWorks() {
           className="mx-auto max-w-2xl text-center"
         >
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-            <Sparkles size={12} />
             From one ad to three, in seconds
           </span>
           <h2 className="mt-4 display-sm">
@@ -234,7 +232,7 @@ function AnalyzeVisual() {
         transition={{ duration: 1.6, repeat: Infinity }}
         className="absolute -right-2 -top-2 flex items-center gap-1 rounded-full bg-brand-500 px-2.5 py-1 text-[10px] font-semibold text-white shadow-lg"
       >
-        <Sparkles size={11} /> AdMultiply AI
+        AdMultiply AI
       </motion.div>
     </div>
   );

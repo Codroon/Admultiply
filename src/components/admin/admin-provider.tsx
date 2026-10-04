@@ -99,7 +99,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     [toast]
   );
 
-  /* Retry re-runs the pipeline at our cost — the customer's token was already
+  /* Retry re-runs the pipeline at our cost, the customer's token was already
      returned when the job failed, so we don't charge them twice. */
   const retryJob = useCallback(
     (jobId: string) => {
@@ -121,7 +121,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
             : j
         )
       );
-      toast("Job requeued — worker will pick it up shortly", "info");
+      toast("Job requeued, worker will pick it up shortly", "info");
 
       timers.current.push(
         setTimeout(() => {
@@ -138,7 +138,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
                 : j
             )
           );
-          toast("Retry succeeded — 3 variations delivered");
+          toast("Retry succeeded, 3 variations delivered");
         }, 2600)
       );
     },

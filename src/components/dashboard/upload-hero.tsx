@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Captions, Clapperboard, RefreshCcw, Sparkles, UploadCloud } from "lucide-react";
+import { ArrowRight, Captions, Clapperboard, Coins, RefreshCcw, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
@@ -33,7 +33,7 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
   const inspect = (file: File) => {
     setError(null);
     if (!ACCEPTED.includes(file.type) && !/\.(mp4|mov|avi)$/i.test(file.name)) {
-      setError("That format isn't supported — please upload an MP4, MOV or AVI.");
+      setError("That format isn't supported. Please upload an MP4, MOV or AVI.");
       return;
     }
     // Read the real metadata from the user's file via an off-screen video element.
@@ -45,7 +45,7 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
       URL.revokeObjectURL(url);
       if (duration > MAX_SECONDS) {
         setError(
-          `This video is ${fmtDuration(duration)} — the maximum is 1:30. Trim it and try again.`
+          `This video is ${fmtDuration(duration)}. The maximum is 1:30, so trim it and try again.`
         );
         return;
       }
@@ -71,7 +71,7 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
     );
     if (res === "ok") {
       setPicked(null);
-      toast("Upload started — 1 token held", "info");
+      toast("Upload started, 1 token held", "info");
     }
   };
 
@@ -132,14 +132,14 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold">
-                {dragging ? "Drop it — we'll take it from here" : "Multiply another ad"}
+                {dragging ? "Drop it, we'll take it from here" : "Multiply another ad"}
               </span>
               <span className="block text-[11px] text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
                 MP4, MOV or AVI · up to 1 min 30 s
               </span>
             </span>
             <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-brand-500/10 px-3 py-1.5 text-[11px] font-bold text-brand-600 ring-1 ring-brand-500/20 dark:text-brand-400 sm:inline-flex">
-              <Sparkles size={11} />1 token → 3 variations
+              <Coins size={11} />1 token = 3 variations
             </span>
           </motion.button>
         ) : (
@@ -182,13 +182,13 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
                 Replace
               </Button>
               <Button size="md" onClick={submit}>
-                <Sparkles size={14} />
                 Multiply this ad · 1 token
+                <ArrowRight size={14} />
               </Button>
             </div>
           </div>
 
-          {/* Options — captions are a paid feature, gated like HD downloads */}
+          {/* Options, captions are a paid feature, gated like HD downloads */}
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border-subtle)] pt-4 dark:border-[var(--color-border-dark-subtle)]">
             <div className="flex items-start gap-3">
               <Captions

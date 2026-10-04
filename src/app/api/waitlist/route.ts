@@ -3,12 +3,12 @@ import { createClient } from "@supabase/supabase-js";
 
 /* Waitlist storage. Requires two env vars (server-only, set in Vercel):
    SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
-   Table: waitlist — see docs/backend-mvp-plan.md checklist.
+   Table: waitlist, see docs/backend-mvp-plan.md checklist.
 
    create table if not exists waitlist (
      id uuid default gen_random_uuid() primary key,
      email text unique not null,
-     company text not null,     -- optional at the form layer; blank saved as ""
+     company text not null,    -- optional at the form layer; blank saved as ""
      business_type text,
      ad_spend text,
      platforms text[],
@@ -46,10 +46,10 @@ export async function POST(req: NextRequest) {
     // Local preview only: allow the flow to continue in development so the
     // UI can be reviewed. Production still refuses rather than drop leads.
     if (process.env.NODE_ENV !== "production") {
-      console.warn("[waitlist] DEV: Supabase not configured — submission NOT stored:", email);
+      console.warn("[waitlist] DEV: Supabase not configured, submission NOT stored:", email);
       return NextResponse.json({ ok: true, stored: false });
     }
-    console.error("[waitlist] Supabase env vars missing — submission NOT stored:", email);
+    console.error("[waitlist] Supabase env vars missing, submission NOT stored:", email);
     return NextResponse.json(
       { ok: false, error: "We couldn't save your signup right now. Please try again in a moment." },
       { status: 503 }
@@ -84,10 +84,10 @@ export async function PATCH(req: NextRequest) {
   const supabase = getSupabase();
   if (!supabase) {
     if (process.env.NODE_ENV !== "production") {
-      console.warn("[waitlist] DEV: Supabase not configured — survey NOT stored:", email);
+      console.warn("[waitlist] DEV: Supabase not configured, survey NOT stored:", email);
       return NextResponse.json({ ok: true, stored: false });
     }
-    console.error("[waitlist] Supabase env vars missing — survey NOT stored:", email);
+    console.error("[waitlist] Supabase env vars missing, survey NOT stored:", email);
     // Email was already captured (or attempted) at step 1; don't block the UX here.
     return NextResponse.json({ ok: false }, { status: 503 });
   }

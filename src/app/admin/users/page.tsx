@@ -61,7 +61,7 @@ function UsersView() {
   const [selectedId, setSelectedId] = useState<string | null>(params.get("user"));
 
   /* Precomputed once per data change. Calling balanceFor/jobsFor inside a cell
-     renderer would scan the whole ledger per row — fine at 20 users, ~2.5M
+     renderer would scan the whole ledger per row, fine at 20 users, ~2.5M
      operations when sorting 600 of them against a few thousand jobs. */
   const balances = useMemo(() => {
     const m = new Map<string, number>();
@@ -339,7 +339,7 @@ function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void })
               </div>
               <Meter value={balance} max={plan.tokens} className="mt-2" />
 
-              {/* Adjustment — writes a ledger row, never a mutated number */}
+              {/* Adjustment, writes a ledger row, never a mutated number */}
               <div className="mt-3.5 border-t border-[var(--color-border-subtle)] pt-3 dark:border-[var(--color-border-dark-subtle)]">
                 <p className="text-[11px] font-bold">Adjust balance</p>
                 <div className="mt-2 flex items-center gap-2">
@@ -415,7 +415,7 @@ function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void })
             </Panel>
           </div>
 
-          {/* Audit trail — free, because the ledger IS the log */}
+          {/* Audit trail, free, because the ledger IS the log */}
           <div>
             <SectionTitle hint="Append-only">Token ledger</SectionTitle>
             <Panel className="divide-y divide-[var(--color-border-subtle)] dark:divide-[var(--color-border-dark-subtle)]">
@@ -478,7 +478,7 @@ function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void })
                   </a>
                 </div>
               ) : (
-                <DetailRow label="Stripe customer">— no subscription</DetailRow>
+                <DetailRow label="Stripe customer">, no subscription</DetailRow>
               )}
             </Panel>
           </div>

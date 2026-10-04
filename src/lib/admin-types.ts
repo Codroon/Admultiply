@@ -2,17 +2,17 @@
    Admin data contract.
 
    These types are the specification for the backend, not just props for the
-   demo screens. Every field below maps to a column the pipeline must write —
+   demo screens. Every field below maps to a column the pipeline must write, 
    if a row isn't written at processing time, the corresponding admin screen
    can never reconstruct it afterwards.
 
    Postgres tables implied by this file:
-     users          — identity lives in Supabase Auth; this holds platform state
-     jobs           — one row per upload, the pipeline state machine
-     job_stages     — one row per stage transition (timeline + durations)
-     variations     — three rows per job; downloaded_at powers the flywheel
-     token_ledger   — APPEND-ONLY. Balance is SUM(delta), never a stored column
-     api_usage      — one row per provider call, per job. Powers cost-per-video
+     users          identity lives in Supabase Auth; this holds platform state
+     jobs           one row per upload, the pipeline state machine
+     job_stages     one row per stage transition (timeline + durations)
+     variations     three rows per job; downloaded_at powers the flywheel
+     token_ledger   APPEND-ONLY. Balance is SUM(delta), never a stored column
+     api_usage      one row per provider call, per job. Powers cost-per-video
 
    See docs/backend-architecture.md for the write-side responsibilities.
 --------------------------------------------------------------------------- */
@@ -35,14 +35,14 @@ export type AdminUser = {
   role: UserRole;
   createdAt: number;
   lastActiveAt: number;
-  /** Showcase consent — opt-in, default false. Gates the public gallery. */
+  /** Showcase consent, opt-in, default false. Gates the public gallery. */
   sharePublicly: boolean;
   /** Deep-link target for Stripe; null while on Free. */
   stripeCustomerId: string | null;
 };
 
 /* -------------------------------------------------------------------------- */
-/* Jobs — the pipeline state machine                                          */
+/* Jobs, the pipeline state machine                                          */
 /* -------------------------------------------------------------------------- */
 
 export type JobStage =
@@ -73,7 +73,7 @@ export const STAGE_LABEL: Record<JobStage, string> = {
 /**
  * Error codes are a closed set on purpose: the admin can filter by them, and
  * each one maps to a known remediation. Anything unclassified goes to Sentry
- * with a stack trace — this table is for *expected* failures only.
+ * with a stack trace, this table is for *expected* failures only.
  */
 export type JobErrorCode =
   | "SOURCE_TOO_LONG"
@@ -127,7 +127,7 @@ export const STRATEGIES: VariationStrategy[] = [
 ];
 
 export type AdminVariation = {
-  /** 1, 2 or 3 — slot position matters for the flywheel (is slot 1 favoured?). */
+  /** 1, 2 or 3, slot position matters for the flywheel (is slot 1 favoured?). */
   slot: 1 | 2 | 3;
   strategy: VariationStrategy;
   status: "pending" | "rendering" | "ready";
@@ -153,7 +153,7 @@ export const PROVIDER_LABEL: Record<ApiProvider, string> = {
 
 export type ApiUsage = {
   provider: ApiProvider;
-  /** Provider-native unit — minutes indexed, audio minutes, tokens, GB. */
+  /** Provider-native unit, minutes indexed, audio minutes, tokens, GB. */
   units: number;
   unitLabel: string;
   costCents: number;
@@ -173,7 +173,7 @@ export type AdminJob = {
   errorCode: JobErrorCode | null;
   errorMessage: string | null;
   retryCount: number;
-  /** Sum of apiUsage — denormalised so the jobs list doesn't need a join. */
+  /** Sum of apiUsage, denormalised so the jobs list doesn't need a join. */
   costCents: number;
   /** Failed jobs must return the token. Unrefunded failures are a bug. */
   tokenRefunded: boolean;
@@ -183,7 +183,7 @@ export type AdminJob = {
 };
 
 /* -------------------------------------------------------------------------- */
-/* Token ledger — append-only                                                 */
+/* Token ledger, append-only                                                 */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -201,7 +201,7 @@ export type LedgerReason =
 export const LEDGER_LABEL: Record<LedgerReason, string> = {
   monthly_grant: "Monthly grant",
   job_reserve: "Held for upload",
-  job_refund: "Refunded — job failed",
+  job_refund: "Refunded, job failed",
   admin_adjust: "Admin adjustment",
   plan_change: "Plan change",
 };
@@ -213,7 +213,7 @@ export type LedgerEntry = {
   delta: number;
   reason: LedgerReason;
   jobId: string | null;
-  /** Set only for admin_adjust — who did it. Never null for that reason. */
+  /** Set only for admin_adjust, who did it. Never null for that reason. */
   adminId: string | null;
   note: string | null;
   createdAt: number;
@@ -239,7 +239,7 @@ export type QueueHealth = {
   depth: number;
   activeWorkers: number;
   totalWorkers: number;
-  /** Seconds the oldest queued job has been waiting — the real SLA signal. */
+  /** Seconds the oldest queued job has been waiting, the real SLA signal. */
   oldestWaitS: number;
 };
 

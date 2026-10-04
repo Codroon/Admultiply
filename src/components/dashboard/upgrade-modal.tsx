@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Sparkles } from "lucide-react";
+import { Check, Lock } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { useDashboard } from "./dashboard-provider";
 
-/* Contextual paywall — opens only on intent (HD download click on a free
+/* Contextual paywall, opens only on intent (HD download click on a free
    tier). Names the exact capability being unlocked; the already-rendered
    assets un-gate on upgrade with no re-render and no token cost. */
 export function UpgradeModal() {
@@ -16,7 +16,7 @@ export function UpgradeModal() {
     <Modal open={upgradeOpen} onClose={closeUpgrade}>
       <div className="flex flex-col items-center text-center">
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-lg shadow-brand-500/30">
-          <Sparkles size={22} />
+          <Lock size={20} />
         </span>
 
         <h2 className="mt-4 text-xl font-bold tracking-tight">
@@ -28,7 +28,7 @@ export function UpgradeModal() {
           <span className="font-semibold text-[var(--color-ink)] dark:text-white">
             everything you&apos;ve already generated
           </span>{" "}
-          — no extra tokens, no re-rendering.
+          with no extra tokens and no re-rendering.
         </p>
 
         <ul className="mt-5 w-full space-y-2 text-left">
@@ -49,7 +49,7 @@ export function UpgradeModal() {
         <div className="mt-6 flex w-full flex-col gap-2">
           <Link href="/dashboard/billing" onClick={closeUpgrade} className="w-full">
             <Button size="lg" className="w-full">
-              See plans — from $9/mo
+              See plans, from $9/mo
             </Button>
           </Link>
           <Button variant="ghost" size="md" onClick={closeUpgrade}>

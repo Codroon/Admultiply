@@ -3,7 +3,7 @@
 /* Right-hand slide-over for detail views.
 
    A drawer rather than a separate page so the operator keeps their place in
-   the list — you triage twenty failed jobs without losing your filters.
+   the list, you triage twenty failed jobs without losing your filters.
    Below sm it becomes a near-full-height sheet, since a 420px panel on a
    phone is unusable. */
 

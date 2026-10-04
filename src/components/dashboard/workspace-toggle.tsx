@@ -5,7 +5,7 @@ import { Moon, Sun } from "lucide-react";
 import { useWorkspaceTheme } from "./workspace-theme";
 
 /* Same control the marketing nav has, pointed at the workspace's own mode
-   instead of the site theme — so switching it here does not silently relight
+   instead of the site theme, so switching it here does not silently relight
    the landing page the next time the user goes back to it.
 
    Unlike the site toggle this needs no `mounted` guard: the workspace mode is

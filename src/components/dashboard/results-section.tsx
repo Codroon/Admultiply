@@ -7,8 +7,7 @@ import {
   Download,
   Loader2,
   Lock,
-  Sparkles,
-  Wand2,
+  Scissors,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -227,7 +226,7 @@ function RefinePanel({ job, variation }: { job: Job; variation: Variation }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="flex items-center gap-2 text-sm font-bold">
-            <Wand2 size={15} className="text-brand-500" />
+            <Scissors size={15} className="text-brand-500" />
             Not quite right?
             {!hd && (
               <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400">
@@ -237,7 +236,7 @@ function RefinePanel({ job, variation }: { job: Job; variation: Variation }) {
           </p>
           <p className="mt-0.5 text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
             {spent
-              ? `You've re-cut this one ${MAX_REFINES} times — the limit.`
+              ? `You've re-cut this one ${MAX_REFINES} times. That is the limit.`
               : hd
                 ? `Tell us what to change and we'll re-cut it. ${left} left on this variation.`
                 : "Tell us what to change and we'll re-cut it. Upgrade to switch this on."}
@@ -255,10 +254,7 @@ function RefinePanel({ job, variation }: { job: Job; variation: Variation }) {
               Re-cutting
             </>
           ) : (
-            <>
-              <Sparkles size={13} />
-              {open ? "Cancel" : "Re-cut this one"}
-            </>
+            <>{open ? "Cancel" : "Re-cut this one"}</>
           )}
         </Button>
       </div>
@@ -303,17 +299,16 @@ function RefinePanel({ job, variation }: { job: Job; variation: Variation }) {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && send()}
-                  placeholder="Or describe it — “open on the product, not the intro”"
+                  placeholder="Or describe it: “open on the product, not the intro”"
                   className="min-w-0 flex-1 rounded-xl border border-[var(--color-border-subtle)] bg-transparent px-3.5 py-2.5 text-base outline-none transition-colors focus:border-brand-500 dark:border-[var(--color-border-dark-subtle)] sm:text-sm"
                 />
                 <Button size="md" disabled={!intent && !note.trim()} onClick={send}>
-                  <Sparkles size={14} />
                   Re-cut
                 </Button>
               </div>
 
               <p className="mt-2 text-[11px] text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-                Your original stays — a re-cut is added as a new version you can
+                Your original stays. A re-cut is added as a new version you can
                 switch between. It doesn&apos;t cost a token.
               </p>
             </div>

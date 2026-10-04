@@ -40,7 +40,7 @@ export function Workflow() {
           </h2>
           <p className="mt-4 text-sm text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)] sm:text-base">
             Everything you need to upload winning ads, generate high-converting
-            micro variations and manage your monthly usage — all in one place.
+            micro variations and manage your monthly usage, all in one place.
           </p>
         </motion.div>
 
@@ -105,7 +105,7 @@ export function Workflow() {
             </div>
           </motion.div>
 
-          {/* Generated variations — compact, responsive thumbnails */}
+          {/* Generated variations, compact, responsive thumbnails */}
           <div className="mt-5">
             <p className="text-center text-sm font-semibold">
               Your 3 new micro-ads are ready

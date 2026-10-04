@@ -90,7 +90,7 @@ export const nextPlan = (id: PlanId): Plan | null => {
   return i >= 0 && i < PLANS.length - 1 ? PLANS[i + 1] : null;
 };
 
-/* Label for the upsell button — always names the next tier up, so the user
+/* Label for the upsell button, always names the next tier up, so the user
    sees one clear step rather than a vague "upgrade". Returns null on the top
    tier, where there is nothing left to sell. */
 export const upgradeCta = (id: PlanId): string | null => {

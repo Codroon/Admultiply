@@ -4,16 +4,16 @@ import { useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowDown, Play } from "lucide-react";
 
-/* "Made with AdMultiply" — an auto-scrolling gallery of example micro-ads
+/* "Made with AdMultiply", an auto-scrolling gallery of example micro-ads
    so new users instantly see what good output looks like. Sample clips for
    the demo; swap for real customer output at launch.
 
    Backend rules agreed with the client (implement when this goes live-data):
-   1. Consent — a customer's output only appears here if they have explicitly
+   1. Consent, a customer's output only appears here if they have explicitly
       opted in (`share_publicly` on the user/video, default OFF) + a toggle in
       Settings to turn it on/off at any time.
-   2. Volume threshold — the section only activates once the library holds
-      enough real micro-ads (~50–100). Keep that number configurable (env /
+   2. Volume threshold, the section only activates once the library holds
+      enough real micro-ads (~50 to 100). Keep that number configurable (env /
       admin setting), not hardcoded, so it can be tuned without a deploy.
    Until both pass, render nothing rather than a thin/fake gallery. */
 const EXAMPLES = [
@@ -92,7 +92,7 @@ export function Showcase() {
           <ArrowDown size={15} strokeWidth={2.5} />
         </motion.span>
         <p className="text-xs font-semibold text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-          Your turn — upload your winning ad
+          Your turn. Upload your winning ad
         </p>
       </div>
     </section>

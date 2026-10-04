@@ -60,7 +60,7 @@ export default function AdminOverview() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Alerts — silent when nothing is wrong, which is the point */}
+      {/* Alerts, silent when nothing is wrong, which is the point */}
       {stats.alerts.length > 0 && (
         <div className="flex flex-col gap-2">
           {stats.alerts.map((a, i) => (
@@ -147,7 +147,7 @@ export default function AdminOverview() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Panel className="xl:col-span-2">
           <PanelHeader
-            title="Throughput — last 14 days"
+            title="Throughput, last 14 days"
             subtitle="Successful renders with failures stacked on top"
           />
           <div className="p-4">
@@ -209,7 +209,7 @@ export default function AdminOverview() {
               />
             </div>
             <p className="mt-3 text-[11px] leading-relaxed text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-              Deep task inspection lives in Flower — this is the at-a-glance read.
+              Deep task inspection lives in Flower, this is the at-a-glance read.
             </p>
           </Panel>
         </div>
@@ -221,7 +221,7 @@ export default function AdminOverview() {
           <span id="health" className="block scroll-mt-24" />
           <PanelHeader
             title="System health"
-            subtitle="Live dependency checks — errors and stack traces go to Sentry"
+            subtitle="Live dependency checks, errors and stack traces go to Sentry"
           />
           <ul className="divide-y divide-[var(--color-border-subtle)] dark:divide-[var(--color-border-dark-subtle)]">
             {services.map((s) => (
@@ -311,7 +311,7 @@ export default function AdminOverview() {
         </Panel>
       </div>
 
-      {/* Scope note — makes the build/delegate split visible rather than implied */}
+      {/* Scope note, makes the build/delegate split visible rather than implied */}
       <Panel className="p-4">
         <SectionTitle hint="Deliberately not rebuilt here">
           Where everything else lives

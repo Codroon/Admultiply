@@ -52,8 +52,8 @@
 
 /* Display type.
 
-   The headline was 54px — not a big font, whatever `text-5xl` suggests.
-   Current landing pages run 90–120px, and at that scale tracking has to come
+   The headline was 54px, not a big font, whatever `text-5xl` suggests.
+   Current landing pages run 90 to 120px, and at that scale tracking has to come
    in hard or the letters drift apart. These two classes carry the whole
    typographic shift; everything else is layout. */
 .display {
@@ -65,7 +65,7 @@
 }
 
 /* Workspace scale. The dashboard is dense and functional, so its headings
-   change voice without changing size — same footprint as the Inter headings
+   change voice without changing size, same footprint as the Inter headings
    they replace, drawn in the display face. */
 .display-xs {
   font-family: var(--font-display);
@@ -120,7 +120,7 @@
   animation: shimmer 3s ease-in-out infinite;
 }
 
-/* Infinite horizontal marquee — the track holds two copies of the content,
+/* Infinite horizontal marquee, the track holds two copies of the content,
    so translating by -50% loops seamlessly. */
 @keyframes marquee {
   from {

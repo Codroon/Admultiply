@@ -12,7 +12,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
-  Sparkles,
+  ArrowUpRight,
 } from "lucide-react";
 import { Logo, LogoMark } from "@/components/logo";
 import { WorkspaceSurface, WorkspaceThemeProvider } from "./workspace-theme";
@@ -78,7 +78,7 @@ function ShellInner({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh bg-[var(--color-surface-muted)] dark:bg-[var(--color-surface-dark)]">
-      {/* Desktop sidebar — collapsible to an icon rail */}
+      {/* Desktop sidebar, collapsible to an icon rail */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-[var(--color-border-subtle)] bg-white py-5 transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] dark:border-[var(--color-border-dark-subtle)] dark:bg-[var(--color-surface-dark-muted)] lg:flex ${
           collapsed ? "w-[76px] px-3" : "w-60 px-4"
@@ -180,14 +180,14 @@ function ShellInner({ children }: { children: ReactNode }) {
           collapsed ? "lg:ml-[76px]" : "lg:ml-60"
         }`}
       >
-        {/* Desktop topbar — page context left, tokens right */}
+        {/* Desktop topbar, page context left, tokens right */}
         <div className="sticky top-0 z-30 hidden items-center justify-between border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-muted)]/80 px-8 py-3.5 backdrop-blur-xl dark:border-[var(--color-border-dark-subtle)] dark:bg-[var(--color-surface-dark)]/80 lg:flex">
           <span className="text-sm font-semibold text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
             {PAGE_TITLES[pathname] ?? "Dashboard"}
           </span>
           <div className="flex items-center gap-3">
             <TokenChip tokens={tokens} />
-            {/* "Get more" lands on Billing & Plan, scrolled to the plan grid —
+            {/* "Get more" lands on Billing & Plan, scrolled to the plan grid, 
                 at launch each plan button opens Stripe checkout. */}
             <Link
               href="/dashboard/billing#plans"
@@ -295,7 +295,7 @@ function AccountMenu({
       <div className="pt-1">
         {upgradeLabel && (
           <Link href="/dashboard/billing#plans">
-            <DropdownItem icon={<Sparkles size={14} />}>{upgradeLabel}</DropdownItem>
+            <DropdownItem icon={<ArrowUpRight size={14} />}>{upgradeLabel}</DropdownItem>
           </Link>
         )}
         <Link href="/dashboard/settings">

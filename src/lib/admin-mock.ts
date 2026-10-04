@@ -3,12 +3,12 @@
 
    Two rules this file follows, both of which matter:
 
-   1. DETERMINISTIC — no Math.random(), no Date.now(). A seeded PRNG and a
+   1. DETERMINISTIC, no Math.random(), no Date.now(). A seeded PRNG and a
       frozen "now" mean the server render and the client render produce byte-
       identical data, so there is no hydration mismatch. It also means the
       client sees the same numbers every time they open the demo.
 
-   2. RECONCILED — every headline figure is derived from generated rows, never
+   2. RECONCILED, every headline figure is derived from generated rows, never
       typed in by hand. MRR is the sum of real subscriptions; a user's token
       balance is the sum of their real ledger entries; cost per video is the
       sum of real api_usage rows. If a number appears on screen, you can click
@@ -58,7 +58,7 @@ const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
 /** Billing cycle length, and where the current one began. Grants, balances and
-    every "this cycle" figure key off these — exported so the stats layer can't
+    every "this cycle" figure key off these, exported so the stats layer can't
     drift from the generator. */
 export const CYCLE_LENGTH_DAYS = 30;
 export const CYCLE_ELAPSED_DAYS = 24;
@@ -118,7 +118,7 @@ function buildUsers(): AdminUser[] {
       const first = pick(FIRST);
       const last = pick(LAST);
       const id = `usr_${(n + 1).toString(36).padStart(6, "0")}`;
-      // Paid users skew older — they've had time to convert.
+      // Paid users skew older, they've had time to convert.
       const ageDays = plan === "free" ? between(0, 120) : between(14, 200);
       const createdAt = NOW - ageDays * DAY;
       const dormant = rand() < 0.18;
@@ -156,14 +156,14 @@ function randomId(len: number) {
 /* -------------------------------------------------------------------------- */
 
 const ERROR_DETAIL: Record<JobErrorCode, string> = {
-  SOURCE_TOO_LONG: "Source runs 2:14 — the pipeline maximum is 1:30.",
+  SOURCE_TOO_LONG: "Source runs 2:14, the pipeline maximum is 1:30.",
   UNSUPPORTED_CODEC: "FFmpeg could not decode stream 0: VP9 inside a MOV container.",
   TWELVELABS_TIMEOUT: "Indexing did not return within the 300s ceiling.",
-  TWELVELABS_RATE_LIMIT: "429 Too Many Requests from TwelveLabs — org concurrency cap hit.",
+  TWELVELABS_RATE_LIMIT: "429 Too Many Requests from TwelveLabs. Org concurrency cap hit.",
   NO_SPEECH_DETECTED: "Whisper returned an empty transcript; no dialogue to anchor cuts on.",
   EDL_INVALID: "Model returned an edit plan with overlapping segments (2 and 3 collide).",
   RENDER_OOM: "Render worker exceeded 2 GB on a 4K source before downscale.",
-  STORAGE_UPLOAD_FAILED: "R2 rejected the multipart upload — part 3 checksum mismatch.",
+  STORAGE_UPLOAD_FAILED: "R2 rejected the multipart upload, part 3 checksum mismatch.",
 };
 
 /* Weighted so the common infra failures dominate, the way they do in reality. */
@@ -247,7 +247,7 @@ function buildVariations(finishedAt: number | null): AdminVariation[] {
     }
     /* The flywheel signal. Hook-first genuinely out-performs in the sample so
        the Insights screen has a real story to tell, and slot 1 carries a mild
-       position bias — exactly the kind of confound the real data will have. */
+       position bias, exactly the kind of confound the real data will have. */
     const base =
       strategy === "Hook-first" ? 0.52 : strategy === "Problem → Solution" ? 0.34 : 0.26;
     const positionBias = slot === 1 ? 0.05 : 0;
@@ -343,7 +343,7 @@ function buildJob(user: AdminUser, createdAt: number, seq: number): AdminJob {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Assembly — jobs, then a ledger derived from them                           */
+/* Assembly, jobs, then a ledger derived from them                           */
 /* -------------------------------------------------------------------------- */
 
 function buildJobsAndLedger(users: AdminUser[]) {
@@ -371,11 +371,11 @@ function buildJobsAndLedger(users: AdminUser[]) {
       reason: "monthly_grant",
       jobId: null,
       adminId: null,
-      note: `${plan.name} plan — ${plan.tokens} tokens`,
+      note: `${plan.name} plan, ${plan.tokens} tokens`,
       createdAt: Math.max(CYCLE_START, user.createdAt),
     });
 
-    // Historic jobs from previous cycles — they shape totals and charts but
+    // Historic jobs from previous cycles, they shape totals and charts but
     // don't touch the current balance.
     const historyCount =
       user.plan === "free" ? intBetween(0, 2) : intBetween(0, Math.round(plan.tokens * 1.2));
@@ -473,7 +473,7 @@ export const SERVICES: ServiceHealth[] = [
     description: "Task queue and worker pool",
     status: "degraded",
     latencyMs: 6,
-    detail: "Queue depth above threshold — 14 waiting",
+    detail: "Queue depth above threshold, 14 waiting",
   },
   {
     key: "storage",
@@ -497,7 +497,7 @@ export const SERVICES: ServiceHealth[] = [
     description: "Subscriptions and checkout",
     status: "operational",
     latencyMs: 45,
-    detail: "Webhooks current — 0 pending",
+    detail: "Webhooks current, 0 pending",
   },
 ];
 
@@ -513,7 +513,7 @@ export const QUEUE = {
 /* -------------------------------------------------------------------------- */
 
 const WL_ROLES = ["Brand / in-house", "Agency", "Creator", "Freelancer", "Other"];
-const WL_SPEND = ["< $1k / mo", "$1k–5k / mo", "$5k–20k / mo", "$20k+ / mo"];
+const WL_SPEND = ["< $1k / mo", "$1k to $5k / mo", "$5k to $20k / mo", "$20k+ / mo"];
 const WL_CHANNEL = ["Meta Ads", "TikTok", "YouTube", "Google Ads (PPC)", "Other"];
 
 function buildWaitlist(): WaitlistEntry[] {
@@ -537,7 +537,7 @@ function buildWaitlist(): WaitlistEntry[] {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Frozen dataset — generated once per module load                            */
+/* Frozen dataset, generated once per module load                            */
 /* -------------------------------------------------------------------------- */
 
 export const USERS = buildUsers();

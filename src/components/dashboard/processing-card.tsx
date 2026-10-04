@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { BrainCircuit, Check, Clapperboard, Layers, ListVideo, Loader2 } from "lucide-react";
+import { Check, Clapperboard, Eye, Layers, ListVideo, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VideoPlayer } from "@/components/ui/video-player";
@@ -11,15 +11,15 @@ import { useDashboard, type Job, type Stage } from "./dashboard-provider";
 /* The wait.
 
    This screen runs for one to two minutes, and what it used to show was a row
-   of stepper pills and a spinner — the same wait any upload form gives you,
+   of stepper pills and a spinner, the same wait any upload form gives you,
    which tells the customer nothing and quietly invites them to wonder whether
    a token just disappeared into a progress bar.
 
    Two things changed. Their own ad plays here, so the wait is visibly about
    their footage rather than a generic job. And the brief is surfaced as it
    lands: what we think the ad is selling, what kind of ad it is, and the three
-   angles with the reasoning behind each. That reasoning already existed — the
-   planner returns a title and a logline per angle — and the old card threw it
+   angles with the reasoning behind each. That reasoning already existed, the
+   planner returns a title and a logline per angle, and the old card threw it
    away in favour of a truncated two-word caption.
 
    The result is that by the time the renders arrive the customer has already
@@ -27,7 +27,7 @@ import { useDashboard, type Job, type Stage } from "./dashboard-provider";
 
 const STAGES: { key: Stage; label: string; icon: typeof Layers }[] = [
   { key: "queued", label: "Queued", icon: ListVideo },
-  { key: "analyzing", label: "Watching your ad", icon: BrainCircuit },
+  { key: "analyzing", label: "Watching your ad", icon: Eye },
   { key: "planning", label: "Choosing 3 angles", icon: Layers },
   { key: "rendering", label: "Cutting the edits", icon: Clapperboard },
 ];
@@ -37,7 +37,7 @@ const order: Stage[] = ["queued", "analyzing", "planning", "rendering", "ready"]
 export function ProcessingCard({ job }: { job: Job }) {
   const { hd, markPreviewPlayed } = useDashboard();
   /* Source ads arrive in any shape. Forcing a portrait ad into a 16:9 frame
-     buries it in pillarbox, so the frame follows the footage — read off the
+     buries it in pillarbox, so the frame follows the footage, read off the
      element itself rather than threaded through the Job, since this is the
      only place that cares. */
   const [portrait, setPortrait] = useState(false);
@@ -84,7 +84,7 @@ export function ProcessingCard({ job }: { job: Job }) {
               )}
             </div>
             {/* A scanning sweep, tied to nothing but the fact that we are
-                still working — honest as ambience, not as progress. */}
+                still working, honest as ambience, not as progress. */}
             {job.stage !== "ready" && (
               <motion.span
                 aria-hidden

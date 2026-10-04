@@ -7,7 +7,7 @@ import { HeroMockup } from "./hero-mockup";
 
 /* A dark stage the rest of the page emerges from.
 
-   Deliberate art direction rather than a theme flip — the stage is dark in
+   Deliberate art direction rather than a theme flip, the stage is dark in
    both light and dark mode, and the page opens into the site's normal surface
    below. Every serious video tool is dark because footage reads properly
    against near-black, and the three cuts in the hero are footage.
@@ -72,7 +72,7 @@ export function Hero() {
           className="mx-auto mt-7 max-w-xl text-base leading-relaxed text-white/60 sm:text-lg"
         >
           Upload one ad that&apos;s already converting. Get three vertical cuts
-          built from its strongest moments — ready for TikTok, Reels and Shorts
+          built from its strongest moments, ready for TikTok, Reels and Shorts
           in about a minute.
         </motion.p>
 

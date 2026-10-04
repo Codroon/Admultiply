@@ -6,7 +6,7 @@ import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion
 /* The product's one idea, as the hero image: one ad becomes three.
 
    A static product panel off to the side is what the two-column SaaS hero
-   does. This puts the transformation itself centre stage — three vertical
+   does. This puts the transformation itself centre stage, three vertical
    cuts fanned around a raised middle, playing, with the outer two drifting on
    scroll so the group has depth rather than sitting flat on the page. */
 

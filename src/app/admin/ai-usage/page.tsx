@@ -111,7 +111,7 @@ export default function AiUsagePage() {
               ))}
             </ul>
             <p className="mt-4 rounded-lg bg-black/[0.03] px-3 py-2 text-[11px] leading-relaxed text-[var(--color-ink-muted)] dark:bg-white/[0.04] dark:text-[var(--color-ink-dark-muted)]">
-              TwelveLabs indexing dominates the bill by design — it is the one call
+              TwelveLabs indexing dominates the bill by design, it is the one call
               that scales with source duration. Capping accepted length at 1:30 is
               the single most effective cost control we have.
             </p>
@@ -200,7 +200,7 @@ export default function AiUsagePage() {
                 <p className="mt-0.5 text-[11px] leading-relaxed text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
                   Every download is a human judging which cut of an ad is worth
                   running. Feed that back into prompt selection and the model gets
-                  better at the specific job of ad repurposing — something no
+                  better at the specific job of ad repurposing, something no
                   general-purpose model has data for.
                 </p>
               </div>

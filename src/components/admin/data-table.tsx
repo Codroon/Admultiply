@@ -162,7 +162,7 @@ export function DataTable<T>({
       {pageCount > 1 && (
         <div className="flex items-center justify-between gap-3 border-t border-[var(--color-border-subtle)] px-3 py-2.5 dark:border-[var(--color-border-dark-subtle)]">
           <span className="text-[11px] tabular-nums text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-            {safePage * pageSize + 1}–{Math.min(sorted.length, (safePage + 1) * pageSize)} of{" "}
+            {safePage * pageSize + 1}, {Math.min(sorted.length, (safePage + 1) * pageSize)} of{" "}
             {sorted.length.toLocaleString("en-US")}
           </span>
           <div className="flex items-center gap-1">

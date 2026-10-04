@@ -3,7 +3,7 @@
 /* Admin-specific primitives.
 
    The product UI is spacious because it sells. Admin is dense because it gets
-   read — smaller type, tighter rows, numbers aligned in columns, and brand
+   read, smaller type, tighter rows, numbers aligned in columns, and brand
    orange reserved for actions and alerts rather than decoration. */
 
 import Link from "next/link";
@@ -73,7 +73,7 @@ export function StatTile({
   deltaLabel?: string;
   hint?: string;
   tone?: "neutral" | "brand" | "danger" | "success";
-  /** For metrics where "up" is bad — failures, cost. */
+  /** For metrics where "up" is bad, failures, cost. */
   invertDelta?: boolean;
   series?: number[];
   href?: string;

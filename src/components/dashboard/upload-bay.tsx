@@ -1,12 +1,12 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, Plus, Sparkles } from "lucide-react";
+import { ArrowRight, Coins, Plus } from "lucide-react";
 
 /* The upload moment.
 
    What was here was a 340px-tall dashed rectangle with a gradient cloud icon
-   in the middle of it — the single most generic element in the product, and
+   in the middle of it, the single most generic element in the product, and
    the shape every file uploader on the web has had for a decade. It also
    wasted the most valuable screen in the app: this is the one moment where
    the customer is about to commit a token, and it told them nothing about
@@ -136,7 +136,7 @@ export function UploadBay({
         <p className="text-sm font-semibold">
           {dragging ? (
             <span className="text-brand-500">
-              Drop it — we&apos;ll take it from here
+              Drop it, we&apos;ll take it from here
             </span>
           ) : (
             <>
@@ -151,7 +151,7 @@ export function UploadBay({
           )}
         </p>
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand-500/10 px-3.5 py-1.5 text-[11px] font-bold text-brand-600 ring-1 ring-brand-500/20 dark:text-brand-400">
-          <Sparkles size={11} />1 token → 3 variations
+          <Coins size={11} />1 token = 3 variations
         </span>
       </div>
     </motion.button>

@@ -25,7 +25,7 @@ export function ScaleCta() {
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/85 sm:text-base">
             Maximise ROI from your best-performing ads with AdMultiply AI.
             Transform winning 1+ minute ads into high-converting micro variations
-            in seconds — helping brands, agencies and creators beat creative
+            in seconds, helping brands, agencies and creators beat creative
             fatigue and scale profitable campaigns faster.
           </p>
 

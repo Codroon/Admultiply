@@ -34,7 +34,7 @@ const NAV = [
   { href: "/admin/waitlist", label: "Waitlist", icon: ListChecks },
 ];
 
-/* Tools we deliberately don't rebuild — the panel links out instead. */
+/* Tools we deliberately don't rebuild, the panel links out instead. */
 const EXTERNAL = [
   { label: "Stripe", href: "https://dashboard.stripe.com" },
   { label: "PostHog", href: "https://app.posthog.com" },
@@ -200,7 +200,7 @@ function ShellInner({ children }: { children: ReactNode }) {
           </span>
 
           <div className="ml-auto flex items-center gap-2">
-            {/* Honesty label — these figures are generated, not production. */}
+            {/* Honesty label, these figures are generated, not production. */}
             <span className="hidden rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-600 ring-1 ring-amber-500/20 dark:text-amber-400 sm:inline">
               Sample data
             </span>

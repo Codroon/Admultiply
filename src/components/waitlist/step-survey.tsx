@@ -38,7 +38,7 @@ const QUESTIONS: Question[] = [
     key: "ad_spend",
     title: "What's your average monthly ad spend?",
     type: "single",
-    options: ["Under $5,000", "$5,000–$25,000", "$25,000–$100,000", "$100,000+"],
+    options: ["Under $5,000", "$5,000, $25,000", "$25,000, $100,000", "$100,000+"],
   },
   {
     key: "platforms",
@@ -72,7 +72,7 @@ const QUESTIONS: Question[] = [
     key: "beta_access",
     title: "Would you like early beta access?",
     type: "single",
-    options: ["Yes — I'd love early access", "No — just send me updates"],
+    options: ["Yes, I'd love early access", "No, just send me updates"],
   },
 ];
 

@@ -5,12 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus } from "lucide-react";
 import { viewportOnce } from "@/lib/motion";
 
-// NOTE: draft FAQ copy — confirm/refine wording with client. The training-data
+// NOTE: draft FAQ copy, confirm/refine wording with client. The training-data
 // answer in particular should be reviewed alongside the Terms & Privacy policy.
 const faqs = [
   {
     q: "How does AdMultiply work?",
-    a: "Upload one of your best-performing video ads and AdMultiply AI generates three fresh, high-converting micro variations in seconds — no editing skills required.",
+    a: "Upload one of your best-performing video ads and AdMultiply AI generates three fresh, high-converting micro variations in seconds, with no editing skills required.",
   },
   {
     q: "What is a video token?",
@@ -26,7 +26,7 @@ const faqs = [
   },
   {
     q: "Can I cancel or change my plan anytime?",
-    a: "Yes. You can upgrade, downgrade or cancel at any time from your billing settings — no lock-in, no hidden fees.",
+    a: "Yes. You can upgrade, downgrade or cancel at any time from your billing settings, with no lock-in and no hidden fees.",
   },
   {
     q: "Do you use my content to train your AI?",
