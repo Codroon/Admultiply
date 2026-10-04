@@ -169,3 +169,70 @@
     background-position: 40px 40px;
   }
 }
+
+/* Video scrubber.
+
+   A native range input so dragging, keyboard and screen readers all work
+   without reimplementing them, with the track painted by hand: brand colour
+   up to the played position, translucent white after it. The thumb is small
+   at rest and grows on hover so it does not sit on the picture like a bead,
+   and the input keeps a 20px hit area for touch. */
+.player-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.player-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--color-brand-500) var(--pct, 0%),
+    rgba(255, 255, 255, 0.3) var(--pct, 0%)
+  );
+}
+
+.player-range::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--color-brand-500) var(--pct, 0%),
+    rgba(255, 255, 255, 0.3) var(--pct, 0%)
+  );
+}
+
+.player-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -4px;
+  height: 12px;
+  width: 12px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  transition: transform 0.15s ease;
+}
+
+.player-range::-moz-range-thumb {
+  height: 12px;
+  width: 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.player-range:hover::-webkit-slider-thumb,
+.player-range:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.25);
+}
+
+.player-range:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
