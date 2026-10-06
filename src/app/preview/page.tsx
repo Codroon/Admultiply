@@ -4,7 +4,6 @@ import { HowItWorks } from "@/components/landing/how-it-works";
 import { ScaleCta } from "@/components/landing/scale-cta";
 import { Testimonials } from "@/components/landing/testimonials";
 import { Pricing } from "@/components/landing/pricing";
-import { Workflow } from "@/components/landing/workflow";
 import { Faq } from "@/components/landing/faq";
 import { FinalCta } from "@/components/landing/final-cta";
 import { Footer } from "@/components/landing/footer";
@@ -24,7 +23,6 @@ export default function PreviewPage() {
       <ScaleCta />
       <Testimonials />
       <Pricing />
-      <Workflow />
       <Faq />
       <FinalCta />
       <Footer />
