@@ -127,7 +127,7 @@ function FeatureRow({ row, reverse }: { row: Row; reverse: boolean }) {
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         className={reverse ? "lg:order-2" : "lg:order-1"}
       >
-        <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br from-brand-100 to-amber-100 p-4 ring-1 ring-black/5 dark:from-brand-500/15 dark:to-amber-500/10 dark:ring-white/10 sm:p-6">
+        <div className="relative aspect-[17/11] overflow-hidden rounded-2xl shadow-2xl shadow-black/15 ring-1 ring-black/10 dark:shadow-black/40 dark:ring-white/10">
           <Visual />
         </div>
       </motion.div>
@@ -172,20 +172,17 @@ function FeatureRow({ row, reverse }: { row: Row; reverse: boolean }) {
 
 /* ---------- Per-step visuals ---------- */
 
-/* A screenshot sitting in the lit frame. object-left-top keeps the part of
-   the screen the step is about in view when the 1360x880 shot is cropped to
-   4:3. */
+/* The screenshot fills its frame edge to edge. The frame's 17:11 is the exact
+   shape of the capture, so object-cover crops nothing. */
 function Shot({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-xl shadow-2xl shadow-black/25 ring-1 ring-black/10 dark:ring-white/10">
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        sizes="(min-width: 1024px) 34rem, 90vw"
-        className="object-cover object-left-top"
-      />
-    </div>
+    <Image
+      src={src}
+      alt={alt}
+      fill
+      sizes="(min-width: 1024px) 34rem, 90vw"
+      className="object-cover"
+    />
   );
 }
 
