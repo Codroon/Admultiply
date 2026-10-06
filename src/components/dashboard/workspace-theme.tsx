@@ -107,6 +107,11 @@ export function useWorkspaceTheme() {
    shell, modal, toasts, renders inside it, and nothing here uses a portal, so
    one wrapper covers the whole workspace.
 
+   The class is `ws-dark` or `ws-light`, never plain `dark`. Both cases are
+   stated out loud so the wrapper can override <html> in either direction, and
+   the `ws-` prefix keeps it from colliding with the `light` class next-themes
+   puts on <html>; see the dark variant in globals.css.
+
    It also has to restate the base text and background colours. Globally those
    come from a `.dark body` rule, and `body` is an *ancestor* of this div, so
    scoping the class here means that rule no longer matches and every element
@@ -117,7 +122,7 @@ export function WorkspaceSurface({ children }: { children: ReactNode }) {
   const { mode } = useWorkspaceTheme();
   return (
     <div
-      className={`${mode === "dark" ? "dark " : ""}bg-[var(--color-surface)] text-[var(--color-ink)] dark:bg-[var(--color-surface-dark)] dark:text-[var(--color-ink-dark)]`}
+      className={`ws-${mode} bg-[var(--color-surface)] text-[var(--color-ink)] dark:bg-[var(--color-surface-dark)] dark:text-[var(--color-ink-dark)]`}
     >
       {children}
     </div>

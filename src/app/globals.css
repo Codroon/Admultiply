@@ -1,6 +1,31 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* Dark applies in two cases, and the workspace is why there are two.
+
+   next-themes owns `<html>` and writes `light` or `dark` on it. The dashboard
+   carries its own mode on a wrapper div so switching it does not relight the
+   marketing pages, which means the wrapper has to be able to override <html>
+   in both directions: force dark on a light site, and force light on a dark
+   one.
+
+   That cannot be done by cancelling `.dark` alone, because an ancestor
+   `.light` from <html> would then cancel the wrapper too. So the workspace
+   uses its own class names, and they win by being named in the first branch
+   rather than by document order:
+
+     1. anything inside `.ws-dark` is dark, whatever <html> says
+     2. anything inside `.dark` is dark, unless a `.ws-light` says otherwise
+
+   Every selector is wrapped in `:where()` so the variant stays at zero
+   specificity. */
+@custom-variant dark {
+  &:where(.ws-dark, .ws-dark *) {
+    @slot;
+  }
+  &:where(.dark, .dark *):not(:where(.ws-light, .ws-light *)) {
+    @slot;
+  }
+}
 
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
