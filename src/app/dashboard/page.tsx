@@ -27,13 +27,13 @@ export default function DashboardHome() {
         </>
       ) : (
         <>
+          {/* Counters first, at the client's call. */}
+          <StatStrip />
           {activeJob ? <ProcessingCard job={activeJob} /> : <UploadHero compact />}
           {latestReady && !activeJob && <ResultsSection job={latestReady} />}
           {latestReady && activeJob && (
             <ResultsSection job={latestReady} title="Your previous micro-ads" />
           )}
-          {/* Counters report status. They sit under the work, not above it. */}
-          <StatStrip />
         </>
       )}
     </div>
