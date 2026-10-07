@@ -1,9 +1,9 @@
-"""Step 1 of the pipeline spike — prove the render path, with no AI involved.
+"""Step 1 of the pipeline spike, prove the render path, with no AI involved.
 
 Everything downstream of the model is exercised here: probing, the EDL
 contract, validation, cutting, concatenating, reframing to 9:16, captions,
 watermark and encode. If this half is wrong, no amount of clever prompting
-saves the output — and this half costs nothing to debug.
+saves the output, and this half costs nothing to debug.
 
     python spike/run_render.py <video>                   # placeholder EDL
     python spike/run_render.py <video> --fit both        # compare reframing
@@ -40,7 +40,7 @@ for _stream in (sys.stdout, sys.stderr):
 def placeholder_edl(source: SourceInfo) -> EDL:
     """Three structurally different cuts, sized to the source.
 
-    Deliberately not clever — it stands in for the model so we can test
+    Deliberately not clever, it stands in for the model so we can test
     rendering. The shapes mirror the three real strategies so we exercise
     single-segment and multi-segment paths.
     """
@@ -135,7 +135,7 @@ def main() -> int:
     print("\nSOURCE")
     print(f"  {source.summary()}")
     if source.aspect < 1:
-        print("  note: source is already vertical — reframing will be near-lossless")
+        print("  note: source is already vertical, reframing will be near-lossless")
     if not source.has_audio:
         print("  warning: no audio track. There will be no speech to cut on.")
 
@@ -146,7 +146,7 @@ def main() -> int:
         detected = detect_content_crop(source)
         if detected and detected.is_significant(source):
             content_crop = detected
-            print(f"  bars detected: {detected.describe(source)} — trimming before reframe")
+            print(f"  bars detected: {detected.describe(source)}, trimming before reframe")
         else:
             print("  bars: none detected")
 

@@ -1,4 +1,4 @@
-"""The Edit Decision List — the contract between the AI and the renderer.
+"""The Edit Decision List, the contract between the AI and the renderer.
 
 This is the most important interface in the whole pipeline. GPT-4o Mini's only
 job is to emit one of these; FFmpeg's only job is to execute it. Keeping that
@@ -10,7 +10,7 @@ Two conventions that matter:
   * All times are SOURCE time (seconds into the original video). The model
     reasons about the transcript, which is in source time, so making it do
     output-time arithmetic is just an extra chance to get it wrong. Remapping
-    to output time is our job — see `remap_captions`.
+    to output time is our job, see `remap_captions`.
 
   * Validation returns a list of human-readable errors rather than raising.
     In step 4 those strings get fed straight back to the model for one retry,
@@ -169,7 +169,7 @@ def validate(
                 )
             if 0 < seg.duration < MIN_SEGMENT_SECONDS:
                 errors.append(
-                    f"{tag}: segment {i + 1} is {seg.duration:.2f}s — too short to "
+                    f"{tag}: segment {i + 1} is {seg.duration:.2f}s, too short to "
                     f"read as a shot (minimum {MIN_SEGMENT_SECONDS}s)."
                 )
 
