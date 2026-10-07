@@ -122,6 +122,15 @@ one has a default that keeps local development working unchanged.
 | `MAX_UPLOAD_MB` | no | largest source accepted, default 500 |
 | `MAX_CONCURRENT_JOBS` | no | jobs processed at once, the rest queue, default 2 |
 | `MAX_JOBS_PER_HOUR` | no | uploads accepted per rolling hour, default 30 |
+| `FFMPEG_THREADS` | set by the image | threads per render; unset means FFmpeg chooses |
+
+**Sizing.** The image defaults to `FFMPEG_THREADS=2` and `MAX_CONCURRENT_JOBS=1`,
+which fits Railway's trial (1 GB of memory). Measured on a real three cut job:
+with FFmpeg choosing its own thread count, one render peaked at 913 MB on a 12
+thread machine, and inside a container it sees the host's CPUs rather than the
+service's share, so it would do the same there. Capped at 2 threads it peaks at
+551 MB, 609 MB with the API, and the job takes 83s instead of 33s. On a plan
+with more memory, raise both.
 
 Railway settings that cannot live in `railway.json`:
 

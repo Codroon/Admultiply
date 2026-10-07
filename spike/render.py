@@ -11,6 +11,7 @@ dodges drawtext's fontconfig dependency, which is a common failure on Windows.
 
 from __future__ import annotations
 
+import os
 import shutil
 import time
 from dataclasses import dataclass
@@ -74,6 +75,21 @@ class RenderResult:
 # code, so a render looks the same on a laptop and on the server.
 FONTS_DIR = Path(__file__).resolve().parent / "fonts"
 CAPTION_FONT = "Archivo Black"
+
+
+def _ffmpeg_threads() -> int | None:
+    """How many threads FFmpeg may use, from FFMPEG_THREADS. None means auto.
+
+    Auto sizes x264's thread pool from the CPUs it can see, and every encoding
+    thread holds frames in memory. On a 12 thread laptop one 1080x1920 render
+    peaked at 913 MB. In a container FFmpeg typically sees the host's CPUs, not
+    the slice the service is allowed, so it would size itself the same way and
+    could blow straight through a 1 GB memory limit mid render. The Docker image
+    sets this; a laptop leaves it unset and keeps full speed.
+    """
+    raw = os.environ.get("FFMPEG_THREADS", "").strip()
+    return int(raw) if raw.isdigit() and int(raw) > 0 else None
+
 
 
 def _stage_fonts(out_dir: Path) -> None:
@@ -385,9 +401,11 @@ def render_variation(
         variation, source, fit=fit, ass_name=ass_name, content_crop=content_crop
     )
 
-    args = [
-        binary("ffmpeg"),
-        "-y",
+    threads = _ffmpeg_threads()
+    args = [binary("ffmpeg"), "-y"]
+    if threads:
+        args += ["-filter_complex_threads", str(threads)]
+    args += [
         "-i", str(source.path.resolve()),
         "-filter_complex", graph,
         "-map", "[vout]",
@@ -399,6 +417,7 @@ def render_variation(
     args += [
         "-c:v", "libx264",
         "-preset", "medium",
+        *(["-threads", str(threads)] if threads else []),
         "-crf", "20",
         "-pix_fmt", "yuv420p",
         "-movflags", "+faststart",

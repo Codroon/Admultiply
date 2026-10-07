@@ -12,6 +12,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     DATA_DIR=/data
 
+# Sized to fit 1 GB of memory, Railway's trial allowance, measured rather than
+# guessed. With FFmpeg free to pick its own thread count, one render on a 12
+# thread machine peaked at 913 MB; capped at 2 threads it peaks at 551 MB, 609
+# MB with the API, at the cost of rendering slower (83s rather than 33s for a
+# three cut job). Two renders at once would not fit, so one job at a time.
+# On a plan with more memory, raise both with Railway variables.
+ENV FFMPEG_THREADS=2 \
+    MAX_CONCURRENT_JOBS=1
+
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*

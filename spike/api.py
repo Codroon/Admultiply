@@ -24,6 +24,8 @@ a laptop and on Railway:
     MAX_UPLOAD_MB        largest source file accepted, default 500
     MAX_CONCURRENT_JOBS  jobs processed at once; the rest wait, default 2
     MAX_JOBS_PER_HOUR    uploads accepted per rolling hour, default 30
+    FFMPEG_THREADS       threads each render may use; unset means FFmpeg's own
+                         choice, which on a server can exhaust memory
     OPENAI_API_KEY, TWELVELABS_API_KEY   required
 """
 
