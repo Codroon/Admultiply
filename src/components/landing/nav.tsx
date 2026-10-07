@@ -11,10 +11,15 @@ const links = [
   { href: "#faq", label: "FAQ" },
 ];
 
-/* `overDark` is for the hero stage, which is near-black in both themes. At the
-   top the bar is transparent over it, so its text has to be light regardless
-   of theme; once scrolled it becomes the normal themed bar. */
-export function Nav({ overDark = false }: { overDark?: boolean }) {
+/* The bar is transparent over the hero at the top and fades into a blurred
+   themed bar once you scroll.
+
+   There used to be a light-on-dark branch here, because the hero stage was
+   near-black whatever the theme was, so the links had to be white over it even
+   in light mode. The hero follows the theme now, which means the transparent
+   state and the scrolled state sit on the same colour as each other and one
+   set of themed link colours covers both. The branch is gone with it. */
+export function Nav() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -24,15 +29,12 @@ export function Nav({ overDark = false }: { overDark?: boolean }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Light-on-dark only while the bar is transparent over the hero stage.
-  const onDark = overDark && !scrolled;
-
   return (
     <motion.header
       initial={{ y: -24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className={`fixed inset-x-0 top-0 z-50 ${onDark ? "text-white" : ""}`}
+      className="fixed inset-x-0 top-0 z-50"
     >
       {/* At the top: transparent, blends into the hero.
           On scroll: a soft blurred bar fades in. */}
@@ -52,11 +54,7 @@ export function Nav({ overDark = false }: { overDark?: boolean }) {
             <a
               key={link.href}
               href={link.href}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                onDark
-                  ? "text-white/60 hover:text-white"
-                  : "text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] dark:text-[var(--color-ink-dark-muted)] dark:hover:text-white"
-              }`}
+              className="rounded-full px-4 py-1.5 text-sm font-medium text-[var(--color-ink-muted)] transition-colors hover:text-[var(--color-ink)] dark:text-[var(--color-ink-dark-muted)] dark:hover:text-white"
             >
               {link.label}
             </a>

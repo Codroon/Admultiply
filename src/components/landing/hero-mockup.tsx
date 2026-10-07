@@ -40,9 +40,9 @@ export function HeroMockup() {
         className="relative"
       >
         {/* The glow the frame sits in */}
-        <div className="pointer-events-none absolute -inset-x-10 -top-8 bottom-0 -z-10 rounded-[2rem] bg-brand-500/20 blur-[90px]" />
+        <div className="pointer-events-none absolute -inset-x-10 -top-8 bottom-0 -z-10 rounded-[2rem] bg-brand-500/12 blur-[90px] dark:bg-brand-500/20" />
 
-        <div className="overflow-hidden rounded-xl ring-1 ring-white/12 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9)] sm:rounded-2xl">
+        <div className="overflow-hidden rounded-xl shadow-[0_30px_90px_-30px_rgba(0,0,0,0.35)] ring-1 ring-black/10 dark:shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9)] dark:ring-white/12 sm:rounded-2xl">
           <Image
             src="/product/step-4-results.png"
             alt="The AdMultiply workspace with three finished micro-ads ready to download"
@@ -59,11 +59,11 @@ export function HeroMockup() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8, delay: 1.1 }}
-        className="mt-6 flex items-center justify-center gap-3 text-xs font-medium text-white/45"
+        className="mt-6 flex items-center justify-center gap-3 text-xs font-medium text-[var(--color-ink-muted)] dark:text-white/45"
       >
-        <span className="h-px w-8 bg-white/15" />
+        <span className="h-px w-8 bg-black/15 dark:bg-white/15" />
         One winning ad in, three micro-ads out
-        <span className="h-px w-8 bg-white/15" />
+        <span className="h-px w-8 bg-black/15 dark:bg-white/15" />
       </motion.div>
     </div>
   );
