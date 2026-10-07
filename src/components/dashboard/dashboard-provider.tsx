@@ -353,6 +353,28 @@ function fromApi(job: Job, api: ApiJob): Job {
   };
 }
 
+/* What to tell a customer when the pipeline says no.
+
+   FastAPI errors are JSON, `{"detail": "..."}`, so the raw body is not
+   something to put in a toast; the detail is, when it is a sentence. A
+   validation error's detail is a list of objects, which falls back.
+
+   A network failure is told apart by type, not wording: fetch rejects with a
+   TypeError in every browser, but the message is "Failed to fetch" in Chrome
+   and "Load failed" in Safari, and the client reviews this on an iPhone. */
+const UNREACHABLE = "We couldn't reach AdMultiply. Check your connection and try again.";
+
+async function refusal(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json();
+    if (typeof body?.detail === "string" && body.detail.trim()) return body.detail;
+  } catch {}
+  return fallback;
+}
+
+const forCustomer = (e: unknown, fallback: string) =>
+  e instanceof TypeError ? UNREACHABLE : e instanceof Error && e.message ? e.message : fallback;
+
 /* ------------------------------------------------------------------------ */
 /* Demo mode: simulated pipeline                                             */
 /* ------------------------------------------------------------------------ */
@@ -573,18 +595,18 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
       fetch(`${PIPELINE_URL}/jobs`, { method: "POST", body })
         .then(async (res) => {
-          if (!res.ok) throw new Error((await res.text()) || `Upload failed (${res.status})`);
+          if (!res.ok) {
+            throw new Error(
+              await refusal(res, "That upload didn't go through. Please try again.")
+            );
+          }
           poll(job.id);
         })
-        .catch((e: Error) => {
-          patchJob(job.id, { stage: "failed", substatus: e.message });
+        .catch((e: unknown) => {
+          const message = forCustomer(e, "That upload didn't go through. Please try again.");
+          patchJob(job.id, { stage: "failed", substatus: message });
           setState((s) => ({ ...s, tokens: s.tokens + 1 }));
-          toast(
-            e.message.includes("Failed to fetch")
-              ? "Can't reach the pipeline. Is the API running on port 8000?"
-              : e.message,
-            "error"
-          );
+          toast(message, "error");
         });
     },
     [state.plan, poll, patchJob, toast]
@@ -796,11 +818,18 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ intent, note }),
       })
         .then(async (res) => {
-          if (!res.ok) throw new Error((await res.text()) || `Failed (${res.status})`);
+          if (!res.ok) {
+            throw new Error(
+              await refusal(res, "That re-cut didn't go through. Please try again.")
+            );
+          }
           poll(jobId); // the job is already "ready", so polling has stopped
         })
-        .catch((e: Error) => {
-          patchVariation(jobId, variationId, { status: "ready", refineError: e.message });
+        .catch((e: unknown) => {
+          patchVariation(jobId, variationId, {
+            status: "ready",
+            refineError: forCustomer(e, "That re-cut didn't go through. Please try again."),
+          });
           toast("Couldn't re-cut that one", "error");
         });
     },
