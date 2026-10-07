@@ -1,0 +1,28 @@
+<!doctype html>
+<!--
+  Source for watermark.png, the badge burned into free plan renders.
+
+  To regenerate after a logo or type change: open this file in Chrome at 100%
+  zoom with a 1x display scale, and screenshot the .wrap element with a
+  transparent background (Playwright: locator(".wrap").screenshot({
+  omitBackground: true })). It is drawn in video pixels and overlaid 1:1 on a
+  1080 wide frame, so do not export it at 2x.
+
+  mark.png is the logo from public/logo.svg trimmed to its visible pixels; the
+  file has wide empty margins, and used untrimmed the mark shrinks to a speck.
+-->
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@700&display=block" rel="stylesheet">
+<style>
+  html, body { margin: 0; background: transparent; }
+  /* The capsule is what keeps it legible over footage of any brightness. */
+  .wrap { display: inline-block; padding: 10px; }
+  .lockup { display: inline-flex; align-items: center; gap: 11px;
+            padding: 10px 22px 10px 16px; border-radius: 999px;
+            background: rgba(10,10,10,0.46);
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.10) inset, 0 4px 18px rgba(0,0,0,0.25); }
+  .lockup img { height: 34px; width: auto; display: block; }
+  .lockup span { font-family: Inter, sans-serif; font-weight: 700; font-size: 31px;
+                 letter-spacing: -0.02em; color: #fff; line-height: 1; }
+</style></head>
+<body><div class="wrap"><div class="lockup"><img src="mark.png"><span>AdMultiply</span></div></div></body></html>

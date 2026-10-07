@@ -151,6 +151,11 @@ Two things the image depends on and would be easy to break:
   watermark are drawn by libass, which needs the face as a file. They used to
   name Arial, which exists on Windows and nowhere else. `render.py` copies the
   bundled font into each job folder and points libass at it.
+- **The free plan watermark is an image, `assets/watermark.png`**: the logo
+  and wordmark on a translucent capsule, laid over the picture by FFmpeg. Its
+  source is `assets/watermark.html`, with notes on regenerating it. If the
+  image is missing the renderer falls back to a text watermark rather than
+  shipping a free render with none.
 - **The API has no login yet**, so uploads are capped per hour and in size.
   Lift the caps when accounts arrive, not before.
 

@@ -76,6 +76,15 @@ class RenderResult:
 FONTS_DIR = Path(__file__).resolve().parent / "fonts"
 CAPTION_FONT = "Archivo Black"
 
+# The free plan watermark is the logo and wordmark on a translucent capsule,
+# not a line of text. It is a prepared image rather than something drawn at
+# render time, so it is the brand's own lockup (the mark plus Inter Bold, as in
+# the site header) and needs no font at all. Source and regeneration notes are
+# in assets/watermark.html. The capsule is what keeps it readable over footage
+# of any brightness; plain white text washed out over light kitchens.
+WATERMARK_IMAGE = Path(__file__).resolve().parent / "assets" / "watermark.png"
+WATERMARK_TOP = 44  # px from the top of the 1080x1920 frame
+
 
 def _ffmpeg_threads() -> int | None:
     """How many threads FFmpeg may use, from FFMPEG_THREADS. None means auto.
@@ -241,6 +250,7 @@ def build_filtergraph(
     fit: str,
     ass_name: str | None,
     content_crop: ContentCrop | None = None,
+    watermark_input: int | None = None,
 ) -> str:
     segments = sorted(variation.segments, key=lambda s: s.start)
     durations = _clip_durations(variation, source)
@@ -309,6 +319,16 @@ def build_filtergraph(
         last_v = "[vsub]"
     else:
         last_v = "[vfit]"
+
+    if watermark_input is not None:
+        # A single still image. overlay repeats an input's last frame once it
+        # runs out, so the badge holds for the whole clip. It goes on before
+        # the top and tail fades so it fades in and out with the picture.
+        parts.append(f"[{watermark_input}:v]format=rgba[wmk]")
+        parts.append(
+            f"{last_v}[wmk]overlay=x=(W-w)/2:y={WATERMARK_TOP}:format=auto[vwm]"
+        )
+        last_v = "[vwm]"
 
     # Top and tail. Slamming in at full brightness and volume and stopping dead
     # is most of what separates "a clip someone extracted" from "an ad someone
@@ -388,25 +408,39 @@ def render_variation(
     total = rendered_duration(variation, source)
     captions = _shift_for_dissolve(remap_captions(variation), variation, source)
 
+    # The badge image when it is there; the old text line only if the asset
+    # has gone missing, so a render never silently ships unwatermarked.
+    badge = bool(watermark) and WATERMARK_IMAGE.exists()
+    text_mark = watermark if (watermark and not badge) else None
+
     ass_name: str | None = None
-    if captions or watermark:
+    if captions or text_mark:
         _stage_fonts(out_dir)
         ass_name = f"{stem}.ass"
         (out_dir / ass_name).write_text(
-            build_ass(captions, total, watermark=watermark),
+            build_ass(captions, total, watermark=text_mark),
             encoding="utf-8",
         )
 
     graph = build_filtergraph(
-        variation, source, fit=fit, ass_name=ass_name, content_crop=content_crop
+        variation,
+        source,
+        fit=fit,
+        ass_name=ass_name,
+        content_crop=content_crop,
+        watermark_input=1 if badge else None,
     )
 
     threads = _ffmpeg_threads()
     args = [binary("ffmpeg"), "-y"]
     if threads:
         args += ["-filter_complex_threads", str(threads)]
+    args += ["-i", str(source.path.resolve())]
+    if badge:
+        # An input, not a filter argument, so its absolute path needs none of
+        # the escaping a path inside the filter graph would.
+        args += ["-i", str(WATERMARK_IMAGE)]
     args += [
-        "-i", str(source.path.resolve()),
         "-filter_complex", graph,
         "-map", "[vout]",
     ]
