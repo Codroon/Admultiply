@@ -1,0 +1,9 @@
+# The pipeline builds on Linux. A Dockerfile or shell script committed with
+# Windows line endings fails there with errors that do not mention line
+# endings, so these are always stored and checked out as LF, whatever a
+# contributor's core.autocrlf says.
+spike/Dockerfile        text eol=lf
+spike/.dockerignore     text eol=lf
+spike/requirements.txt  text eol=lf
+spike/railway.json      text eol=lf
+*.sh                    text eol=lf
