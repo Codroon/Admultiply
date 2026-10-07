@@ -21,7 +21,10 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CACHE_DIR = Path(__file__).resolve().parent / "cache"
+# The analysis cache is what makes a refine cost a fraction of a cent rather
+# than a full re-analysis, so on a server it lives on the persistent volume
+# beside the jobs. Without DATA_DIR it stays next to the code, as before.
+CACHE_DIR = Path(os.environ.get("DATA_DIR") or Path(__file__).resolve().parent) / "cache"
 
 
 # --------------------------------------------------------------------------- #

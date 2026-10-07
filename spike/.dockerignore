@@ -1,0 +1,12 @@
+# Local working data. On the server, jobs and the cache live on the volume.
+jobs/
+cache/
+output*/
+out-*/
+*.mp4
+*.mov
+*.m4v
+__pycache__/
+*.pyc
+.venv/
+venv/

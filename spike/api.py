@@ -15,41 +15,95 @@ a JSON file per job. The dashboard will not notice.
 Jobs run on a background thread and report through the pipeline's callbacks,
 which is what lets the UI show "rendering 2 of 3" and reveal clips as they
 land rather than all at once at the end.
+
+Configuration, all optional, all from the environment so the same code runs on
+a laptop and on Railway:
+
+    DATA_DIR             where jobs and the analysis cache live (a volume)
+    ALLOWED_ORIGINS      comma separated origins the dashboard is served from
+    MAX_UPLOAD_MB        largest source file accepted, default 500
+    MAX_CONCURRENT_JOBS  jobs processed at once; the rest wait, default 2
+    MAX_JOBS_PER_HOUR    uploads accepted per rolling hour, default 30
+    OPENAI_API_KEY, TWELVELABS_API_KEY   required
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
 import threading
 import time
 import uuid
+from collections import deque
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from config import load_env
 from ffmpeg_tools import binary, run as ffrun
 from pipeline import Options, refine as pipeline_refine, run
 from plan import MAX_REFINES, REFINE_INTENTS
 from render import RenderResult
 from understand import Brief
 
-JOBS_DIR = Path(__file__).resolve().parent / "jobs"
-JOBS_DIR.mkdir(exist_ok=True)
+# --------------------------------------------------------------------------- #
+# Deployment settings
+# --------------------------------------------------------------------------- #
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return max(1, int(os.environ.get(name, default)))
+    except ValueError:
+        return default
+
+
+# Where jobs live. On Railway this is a mounted volume: a container's own disk
+# is wiped on every deploy, and the rendered clips would go with it.
+DATA_DIR = Path(os.environ.get("DATA_DIR") or Path(__file__).resolve().parent)
+JOBS_DIR = DATA_DIR / "jobs"
+JOBS_DIR.mkdir(parents=True, exist_ok=True)
+
+# The dashboard's origin has to be listed here or the browser will not let it
+# read anything this API returns, clip downloads included. Trailing slashes are
+# stripped because an origin never has one and a pasted URL often does.
+ALLOWED_ORIGINS = [
+    o.strip().rstrip("/")
+    for o in os.environ.get(
+        "ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+    ).split(",")
+    if o.strip()
+]
+
+# Every upload spends real money with TwelveLabs and OpenAI, and there is no
+# login in front of this yet. Until there is, it is bounded: how big a file it
+# takes, how many it works on at once, and how many it accepts an hour.
+MAX_UPLOAD_MB = _env_int("MAX_UPLOAD_MB", 500)
+MAX_CONCURRENT_JOBS = _env_int("MAX_CONCURRENT_JOBS", 2)
+MAX_JOBS_PER_HOUR = _env_int("MAX_JOBS_PER_HOUR", 30)
 
 app = FastAPI(title="AdMultiply pipeline", version="0.1")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
+
+# Renders are heavy, so only so many run at once. A job that cannot get a slot
+# simply stays "queued", which the dashboard already shows as waiting. Refines
+# take a slot too, since they render.
+_slots = threading.BoundedSemaphore(MAX_CONCURRENT_JOBS)
+_accepted: deque[float] = deque()
 
 # What the customer reads while they wait. Written for a person, not a log.
 DETAIL = {
@@ -190,18 +244,19 @@ def _run_job(job_id: str, source: Path, opts: Options) -> None:
             job["updated_at"] = time.time()
             _save(job)
 
-    try:
-        result = run(source, out_dir, opts, progress, on_plan=on_plan, on_clip=on_clip)
-        _update(
-            job_id,
-            stage="ready",
-            detail="",
-            report=result.report(),
-            warnings=result.warnings,
-            finished_at=time.time(),
-        )
-    except Exception as e:  # noqa: BLE001 -- anything the pipeline raises is the job's failure reason
-        _update(job_id, stage="failed", detail="", error=str(e), finished_at=time.time())
+    with _slots:
+        try:
+            result = run(source, out_dir, opts, progress, on_plan=on_plan, on_clip=on_clip)
+            _update(
+                job_id,
+                stage="ready",
+                detail="",
+                report=result.report(),
+                warnings=result.warnings,
+                finished_at=time.time(),
+            )
+        except Exception as e:  # noqa: BLE001 -- anything the pipeline raises is the job's failure reason
+            _update(job_id, stage="failed", detail="", error=str(e), finished_at=time.time())
 
 
 # --------------------------------------------------------------------------- #
@@ -224,12 +279,33 @@ async def create_job(
     if suffix not in (".mp4", ".mov", ".m4v", ".avi", ".webm"):
         raise HTTPException(415, "Please upload an MP4, MOV or AVI")
 
+    now = time.time()
+    with _lock:
+        while _accepted and now - _accepted[0] > 3600:
+            _accepted.popleft()
+        if len(_accepted) >= MAX_JOBS_PER_HOUR:
+            raise HTTPException(
+                429, "AdMultiply is busy right now. Please try again in a few minutes."
+            )
+
     out_dir = _path(job_id)
     out_dir.mkdir(parents=True, exist_ok=True)
     source = out_dir / f"source{suffix}"
+    limit = MAX_UPLOAD_MB * 1024 * 1024
+    written = 0
     with source.open("wb") as fh:
         while chunk := await file.read(1024 * 1024):
+            written += len(chunk)
+            if written > limit:
+                break
             fh.write(chunk)
+    if written > limit:
+        shutil.rmtree(out_dir, ignore_errors=True)
+        raise HTTPException(
+            413, f"That file is over {MAX_UPLOAD_MB} MB. Please export a smaller version and try again."
+        )
+    with _lock:
+        _accepted.append(now)
 
     job = {
         "id": job_id,
@@ -277,19 +353,20 @@ def _run_refine(job_id: str, index: int, intent: str, note: str) -> None:
             _save(job)
 
     try:
-        outcome = pipeline_refine(
-            Path(job["_source"]),
-            _path(job_id),
-            angle,
-            intent=intent,
-            note=note,
-            version=n,
-            opts=Options(
-                visual=True,
-                captions=job["options"].get("captions", False),
-                watermark="AdMultiply" if job["options"].get("watermark", True) else None,
-            ),
-        )
+        with _slots:
+            outcome = pipeline_refine(
+                Path(job["_source"]),
+                _path(job_id),
+                angle,
+                intent=intent,
+                note=note,
+                version=n,
+                opts=Options(
+                    visual=True,
+                    captions=job["options"].get("captions", False),
+                    watermark="AdMultiply" if job["options"].get("watermark", True) else None,
+                ),
+            )
     except Exception as e:  # noqa: BLE001 -- any failure is this refine's failure
         touch(status="ready", refine_error=str(e))
         return
@@ -380,9 +457,44 @@ def list_jobs() -> list[dict]:
     return sorted((_public(j) for j in _jobs.values()), key=lambda j: -j["created_at"])
 
 
+def _readiness() -> dict[str, bool]:
+    """What this instance needs before it can take a job.
+
+    Railway calls /health before sending traffic to a new deploy. Answering
+    "ok" unconditionally would let a container with no FFmpeg, or with a key
+    missing from its variables, go live and fail on the first upload instead.
+    Checked once at start, since none of it changes without a restart.
+    """
+    checks: dict[str, bool] = {}
+    try:
+        binary("ffmpeg")
+        binary("ffprobe")
+        checks["ffmpeg"] = True
+    except Exception:  # noqa: BLE001 -- missing is missing, whatever the reason
+        checks["ffmpeg"] = False
+    env = load_env()
+    checks["openai_key"] = bool(env.get("OPENAI_API_KEY"))
+    checks["twelvelabs_key"] = bool(env.get("TWELVELABS_API_KEY"))
+    try:
+        probe = JOBS_DIR / ".write-test"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        checks["storage"] = True
+    except OSError:
+        checks["storage"] = False
+    return checks
+
+
+_READY = _readiness()
+
+
 @app.get("/health")
-def health() -> dict:
-    return {"ok": True, "jobs": len(_jobs)}
+def health() -> JSONResponse:
+    ok = all(_READY.values())
+    return JSONResponse(
+        {"ok": ok, "checks": _READY, "jobs": len(_jobs)},
+        status_code=200 if ok else 503,
+    )
 
 
 app.mount("/clips", StaticFiles(directory=str(JOBS_DIR)), name="clips")

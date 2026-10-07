@@ -1,0 +1,8 @@
+# The pipeline's own HTTP calls to OpenAI and TwelveLabs use the standard
+# library, so this is only the web layer. Pinned to the versions it was tested
+# against, so a server build cannot quietly differ from a laptop.
+fastapi==0.121.2
+starlette==0.49.3
+pydantic==2.12.4
+python-multipart==0.0.32
+uvicorn[standard]==0.38.0
