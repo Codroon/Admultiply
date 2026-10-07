@@ -71,12 +71,40 @@ function subscribe(onChange: () => void) {
   };
 }
 
+/* Flip the workspace without animating it.
+
+   next-themes does this for the site theme and the dashboard toggle is ours,
+   so it needs the same treatment: kill every transition for the one frame the
+   class changes, then restore them. Without it the switch animates every
+   transitioning element in the workspace at once and feels like lag. */
 function write(next: WorkspaceMode) {
+  let killer: HTMLStyleElement | null = null;
+  try {
+    killer = document.createElement("style");
+    killer.appendChild(
+      document.createTextNode(
+        "*,*::before,*::after{transition:none!important;animation-duration:0s!important}"
+      )
+    );
+    document.head.appendChild(killer);
+  } catch {}
+
   cached = next;
   try {
     localStorage.setItem(KEY, next);
   } catch {}
   listeners.forEach((l) => l());
+
+  if (killer) {
+    const el = killer;
+    requestAnimationFrame(() => {
+      // Reading a layout property forces the new styles to apply before the
+      // override is lifted, otherwise the browser may batch them together and
+      // animate anyway.
+      void window.getComputedStyle(document.body).opacity;
+      requestAnimationFrame(() => el.remove());
+    });
+  }
 }
 
 type Ctx = { mode: WorkspaceMode; setMode: (m: WorkspaceMode) => void };

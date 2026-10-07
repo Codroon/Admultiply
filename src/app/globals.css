@@ -66,7 +66,9 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    /* No colour transition here on purpose: body's background and text only
+       ever change when the theme does, and animating them made the switch
+       feel slow. */
   }
 
   .dark body {
