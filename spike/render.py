@@ -11,6 +11,7 @@ dodges drawtext's fontconfig dependency, which is a common failure on Windows.
 
 from __future__ import annotations
 
+import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -45,7 +46,7 @@ AUDIO_FADE_OUT = 0.45
 
 # "crop" fills the frame and loses the sides; "blur" keeps the whole frame over
 # a blurred backdrop. Which one wins is an open question we settle on real
-# footage — subject-aware cropping is explicitly out of MVP scope.
+# footage, subject-aware cropping is explicitly out of MVP scope.
 FIT_MODES = ("crop", "blur")
 
 
@@ -64,8 +65,40 @@ class RenderResult:
 # --------------------------------------------------------------------------- #
 
 
+# Captions and the watermark are drawn by libass, which needs the font as a
+# file it can load. They used to name Arial Black and Arial, which exist on
+# Windows and on nothing else: in a Linux container libass silently fell back
+# to whatever font it could find, so every free plan render would have carried
+# its watermark in the wrong face. Archivo Black is open licensed (OFL, see
+# fonts/OFL.txt), close in weight and width to Arial Black, and ships with the
+# code, so a render looks the same on a laptop and on the server.
+FONTS_DIR = Path(__file__).resolve().parent / "fonts"
+CAPTION_FONT = "Archivo Black"
+
+
+def _stage_fonts(out_dir: Path) -> None:
+    """Give libass the bundled fonts, next to the render.
+
+    FFmpeg runs with its working directory set to `out_dir` so the subtitle
+    file can be a bare name; Windows absolute paths need awkward escaping inside
+    a filter graph. The fonts follow the same rule: copied into a `.fonts`
+    folder there and referenced as `fontsdir=.fonts`. A dedicated folder rather
+    than `fontsdir=.` matters, because libass reads every file in that folder
+    trying to load it as a font, and the job folder holds the source video.
+
+    Copied once per job folder and never removed, since a refine can render in
+    the same folder while another render is still running.
+    """
+    target = out_dir / ".fonts"
+    target.mkdir(exist_ok=True)
+    for font in FONTS_DIR.glob("*.ttf"):
+        dest = target / font.name
+        if not dest.exists():
+            shutil.copy2(font, dest)
+
+
 def _ass_time(seconds: float) -> str:
-    """ASS wants H:MM:SS.cc — centiseconds, single-digit hours."""
+    """ASS wants H:MM:SS.cc, centiseconds, single-digit hours."""
     seconds = max(0.0, seconds)
     h, rem = divmod(seconds, 3600)
     m, s = divmod(rem, 60)
@@ -89,20 +122,25 @@ def build_ass(
 ) -> str:
     """Caption track styled for paid social: big, high-contrast, lower third.
 
-    Colours are ASS's &HAABBGGRR — alpha first and inverted, so 00 is opaque.
+    WrapStyle 0 lets libass break a long line in two. It was 2, never wrap,
+    which assumed a four word cue always fits; at 74px in a black weight face a
+    32 character cue ran off both edges of a 1080 wide frame, in Arial Black
+    as much as in Archivo Black. A cue that fits stays on one line either way.
+
+    Colours are ASS's &HAABBGGRR, alpha first and inverted, so 00 is opaque.
     """
     head = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {TARGET_W}
 PlayResY: {TARGET_H}
-WrapStyle: 2
+WrapStyle: 0
 ScaledBorderAndShadow: yes
 YCbCr Matrix: TV.709
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Caption,Arial Black,74,&H00FFFFFF,&H000000FF,&H00000000,&H90000000,-1,0,0,0,100,100,1,0,1,6,3,2,90,90,300,1
-Style: Mark,Arial,40,&H66FFFFFF,&H000000FF,&H66000000,&H00000000,-1,0,0,0,100,100,2,0,1,3,0,8,60,60,70,1
+Style: Caption,{CAPTION_FONT},74,&H00FFFFFF,&H000000FF,&H00000000,&H90000000,0,0,0,0,100,100,1,0,1,6,3,2,90,90,300,1
+Style: Mark,{CAPTION_FONT},40,&H66FFFFFF,&H000000FF,&H66000000,&H00000000,0,0,0,0,100,100,2,0,1,3,0,8,60,60,70,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -248,9 +286,10 @@ def build_filtergraph(
     parts.append(reframe)
 
     if ass_name:
-        # Run with cwd set to the output directory so this is a bare filename —
+        # Run with cwd set to the output directory so this is a bare filename;
         # Windows absolute paths need painful escaping inside a filter string.
-        parts.append(f"[vfit]subtitles={ass_name}[vsub]")
+        # The bundled fonts sit in `.fonts` there for the same reason.
+        parts.append(f"[vfit]subtitles={ass_name}:fontsdir=.fonts[vsub]")
         last_v = "[vsub]"
     else:
         last_v = "[vfit]"
@@ -335,6 +374,7 @@ def render_variation(
 
     ass_name: str | None = None
     if captions or watermark:
+        _stage_fonts(out_dir)
         ass_name = f"{stem}.ass"
         (out_dir / ass_name).write_text(
             build_ass(captions, total, watermark=watermark),
