@@ -117,7 +117,7 @@ one has a default that keeps local development working unchanged.
 |---|---|---|
 | `OPENAI_API_KEY` | yes | planning and transcription |
 | `TWELVELABS_API_KEY` | yes | visual understanding |
-| `ALLOWED_ORIGINS` | yes | comma separated origins the dashboard is served from |
+| `ALLOWED_ORIGINS` | yes | comma separated origins the dashboard is served from. A `*` matches one label, so `https://admultiply-*-mujtaba-s-projects6.vercel.app` covers every Vercel preview build |
 | `DATA_DIR` | set by the image | where jobs and the analysis cache live; mount the volume here |
 | `MAX_UPLOAD_MB` | no | largest source accepted, default 500 |
 | `MAX_CONCURRENT_JOBS` | no | jobs processed at once, the rest queue, default 2 |

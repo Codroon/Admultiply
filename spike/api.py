@@ -20,7 +20,8 @@ Configuration, all optional, all from the environment so the same code runs on
 a laptop and on Railway:
 
     DATA_DIR             where jobs and the analysis cache live (a volume)
-    ALLOWED_ORIGINS      comma separated origins the dashboard is served from
+    ALLOWED_ORIGINS      comma separated origins the dashboard is served from;
+                         a `*` in an entry matches one label, for preview URLs
     MAX_UPLOAD_MB        largest source file accepted, default 500
     MAX_CONCURRENT_JOBS  jobs processed at once; the rest wait, default 2
     MAX_JOBS_PER_HOUR    uploads accepted per rolling hour, default 30
@@ -90,10 +91,26 @@ MAX_UPLOAD_MB = _env_int("MAX_UPLOAD_MB", 500)
 MAX_CONCURRENT_JOBS = _env_int("MAX_CONCURRENT_JOBS", 2)
 MAX_JOBS_PER_HOUR = _env_int("MAX_JOBS_PER_HOUR", 30)
 
+# An entry may contain `*`, which stands for one label of letters, digits and
+# hyphens. That is for Vercel, which gives every build its own address such as
+# admultiply-k3f9x2-team.vercel.app; those cannot be listed one by one, and a
+# browser on one of them would otherwise be refused the pipeline's replies
+# while the upload itself still went through and cost money.
+_EXACT_ORIGINS = [o for o in ALLOWED_ORIGINS if "*" not in o]
+_ORIGIN_REGEX = (
+    "|".join(
+        "^" + re.escape(o).replace(r"\*", "[a-z0-9-]+") + "$"
+        for o in ALLOWED_ORIGINS
+        if "*" in o
+    )
+    or None
+)
+
 app = FastAPI(title="AdMultiply pipeline", version="0.1")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=_EXACT_ORIGINS,
+    allow_origin_regex=_ORIGIN_REGEX,
     allow_methods=["*"],
     allow_headers=["*"],
 )
