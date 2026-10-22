@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from edl import Caption, Variation, remap_captions
-from ffmpeg_tools import ContentCrop, SourceInfo, binary, run
+from ffmpeg_tools import ContentCrop, SourceInfo, TextBand, binary, run
 
 TARGET_W = 1080
 TARGET_H = 1920
@@ -159,11 +159,43 @@ def _ass_escape(text: str) -> str:
     )
 
 
+CAPTION_MARGIN_V = 300  # default, in PlayRes units up from the bottom
+CAPTION_BLOCK = 190     # two lines of 74px plus outline, near enough
+
+
+def caption_margin(avoid: TextBand | None) -> int:
+    """How far up from the bottom to sit, given text already on the picture.
+
+    With Alignment 2 the text occupies [H - margin - block, H - margin]. The
+    ad's own captions are a band we have to miss, so this takes whichever side
+    of them has more room and clamps the result to the lower half, where a
+    caption belongs. Returns the default when there is nothing to avoid, which
+    is also what happens when neither side fits: two sets of words is a worse
+    outcome than one set in an odd spot, but a caption pinned to the very edge
+    of the frame is worse than both.
+    """
+    if avoid is None:
+        return CAPTION_MARGIN_V
+
+    h = TARGET_H
+    band_top = avoid.top * h
+    band_bottom = avoid.bottom * h
+
+    below = int(h - band_bottom - CAPTION_BLOCK)  # sit under their band
+    above = int(h - band_top) + 30                # sit over it, with a gap
+    options = [m for m in (below, above) if 110 <= m <= h * 0.62]
+    if not options:
+        return CAPTION_MARGIN_V
+    # Prefer the lower position when both work; captions read best low.
+    return min(options)
+
+
 def build_ass(
     captions: list[Caption],
     total_duration: float,
     *,
     watermark: str | None = None,
+    avoid: TextBand | None = None,
 ) -> str:
     """Caption track styled for paid social: big, high-contrast, lower third.
 
@@ -174,6 +206,7 @@ def build_ass(
 
     Colours are ASS's &HAABBGGRR, alpha first and inverted, so 00 is opaque.
     """
+    margin_v = caption_margin(avoid)
     head = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {TARGET_W}
@@ -184,7 +217,7 @@ YCbCr Matrix: TV.709
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Caption,{CAPTION_FONT},74,&H00FFFFFF,&H000000FF,&H00000000,&H90000000,0,0,0,0,100,100,1,0,1,6,3,2,90,90,300,1
+Style: Caption,{CAPTION_FONT},74,&H00FFFFFF,&H000000FF,&H00000000,&H90000000,0,0,0,0,100,100,1,0,1,6,3,2,90,90,{margin_v},1
 Style: Mark,{CAPTION_FONT},40,&H66FFFFFF,&H000000FF,&H66000000,&H00000000,0,0,0,0,100,100,2,0,1,3,0,8,60,60,70,1
 
 [Events]
@@ -416,6 +449,7 @@ def render_variation(
     keep_ass: bool = False,
     content_crop: ContentCrop | None = None,
     suffix: str = "",
+    avoid_text: TextBand | None = None,
 ) -> RenderResult:
     if fit not in FIT_MODES:
         raise ValueError(f"fit must be one of {FIT_MODES}, got {fit!r}")
@@ -438,7 +472,7 @@ def render_variation(
         _stage_fonts(out_dir)
         ass_name = f"{stem}.ass"
         (out_dir / ass_name).write_text(
-            build_ass(captions, total, watermark=text_mark),
+            build_ass(captions, total, watermark=text_mark, avoid=avoid_text),
             encoding="utf-8",
         )
 

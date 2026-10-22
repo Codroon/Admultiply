@@ -267,6 +267,77 @@ def detect_content_crop(source: SourceInfo, samples: int = 5) -> ContentCrop | N
 
 
 # --------------------------------------------------------------------------- #
+# Burned-in text
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class TextBand:
+    """A horizontal strip of the frame that already holds text, as fractions."""
+    top: float
+    bottom: float
+    strength: float
+
+    def describe(self) -> str:
+        return f"{self.top:.0%}-{self.bottom:.0%} down the frame"
+
+
+def detect_text_band(source: SourceInfo, rows: int = 36, fps: float = 2.0) -> TextBand | None:
+    """Find where an ad already carries burned-in captions or a handle.
+
+    Most social ad creative arrives with captions baked into the picture, and
+    drawing ours on top produces two overlapping sets of words. Removing theirs
+    is not possible without inpainting the frames, but knowing *where* they are
+    is enough to put ours somewhere else.
+
+    One pass: edge-detect, then squash each frame to a single column so every
+    row becomes one number, the density of hard edges across that row. Text is
+    a wide run of strong edges and survives the squash; a face or a cupboard
+    does not, because any one row of it is mostly smooth. Rows are then scored
+    over time, and anything with real energy is reported.
+
+    Verified against the local corpus: it finds the band in ads that have one,
+    stays silent on ads that do not, and also catches a static handle overlay,
+    which is text we equally should not draw over.
+    """
+    if source.duration <= 0:
+        return None
+    try:
+        proc = subprocess.run(
+            [
+                binary("ffmpeg"), "-v", "error", "-i", str(source.path),
+                "-vf", f"fps={fps},edgedetect=low=0.1:high=0.3,"
+                       f"scale=1:{rows}:flags=area,format=gray",
+                "-f", "rawvideo", "-pix_fmt", "gray", "-",
+            ],
+            capture_output=True,
+        )
+    except OSError:
+        return None
+
+    data = proc.stdout
+    frames = [data[i * rows:(i + 1) * rows] for i in range(len(data) // rows)]
+    if len(frames) < 4:
+        return None
+
+    means = [sum(f[r] for f in frames) / len(frames) for r in range(rows)]
+    # A row has to carry real edge density to count. Below this is grain.
+    hot = [r for r, m in enumerate(means) if m > 3.0]
+    if not hot:
+        return None
+
+    # Take the run containing the strongest row, so a caption band and a
+    # separate handle elsewhere do not merge into one enormous region.
+    peak = max(hot, key=lambda r: means[r])
+    lo = hi = peak
+    while lo - 1 in hot:
+        lo -= 1
+    while hi + 1 in hot:
+        hi += 1
+    return TextBand(top=lo / rows, bottom=(hi + 1) / rows, strength=means[peak])
+
+
+# --------------------------------------------------------------------------- #
 # Scene changes
 # --------------------------------------------------------------------------- #
 

@@ -126,9 +126,13 @@ export function UploadConfirm({
                 )}
               </span>
               <span className="mt-0.5 block text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
+                {/* The old line told people to leave this off if their ad
+                    already had captions, because ours landed on top of
+                    theirs. The renderer finds the ad's own text now and places
+                    ours clear of it, so the warning is no longer true. */}
                 {hd
-                  ? "Word synced captions burned into each cut. Leave this off if your ad already has them."
-                  : "Word synced captions burned into each cut. Available on paid plans."}
+                  ? "Word synced captions burned into each cut. If your ad already has its own, ours go clear of them."
+                  : "Word synced captions burned into each cut. Upgrade to Plus to switch this on."}
               </span>
             </span>
             <span

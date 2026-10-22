@@ -24,7 +24,15 @@ from typing import Callable
 from analyze import VisualAnalysis, analyze
 from config import cache_read, cache_write, file_fingerprint, load_env
 from edl import validate, warnings
-from ffmpeg_tools import ContentCrop, SourceInfo, detect_content_crop, detect_scene_cuts, probe
+from ffmpeg_tools import (
+    ContentCrop,
+    SourceInfo,
+    TextBand,
+    detect_content_crop,
+    detect_scene_cuts,
+    detect_text_band,
+    probe,
+)
 from net import ApiError
 from plan import PlanResult, make_plan, refine_storyline
 from render import RenderResult, render_variation
@@ -111,6 +119,7 @@ class Result:
     plan: PlanResult
     clips: list[RenderResult]
     content_crop: ContentCrop | None
+    text_band: TextBand | None
     wall_s: float
     warnings: list[str] = field(default_factory=list)
     stage_seconds: dict[str, float] = field(default_factory=dict)
@@ -133,6 +142,15 @@ class Result:
             "resolution": f"{self.source.width}x{self.source.height}",
             "wall_clock_s": round(self.wall_s, 1),
             "stage_seconds": self.stage_seconds,
+            "source_text_band": (
+                {
+                    "top": round(self.text_band.top, 3),
+                    "bottom": round(self.text_band.bottom, 3),
+                    "where": self.text_band.describe(),
+                }
+                if self.text_band
+                else None
+            ),
             "cost": {
                 "twelvelabs_usd": round(self.visual.cost_usd, 5) if self.visual else 0.0,
                 "whisper_usd": round(self.transcript.cost_usd, 5),
@@ -253,6 +271,7 @@ def refine(
         intent=intent, note=note, others=others,
     )
 
+    avoid_text = detect_text_band(source) if opts.captions else None
     if not opts.captions:
         result.variation.captions = []
 
@@ -264,6 +283,7 @@ def refine(
         watermark=opts.watermark,
         content_crop=content_crop,
         suffix=f"v{version}",
+        avoid_text=avoid_text,
     )
     progress("ready")
     return RefineOutcome(
@@ -385,7 +405,18 @@ def run(
             f"better results."
         )
 
-    if not opts.captions:
+    text_band: TextBand | None = None
+    if opts.captions:
+        # Only worth the pass when we are about to draw over the picture. Most
+        # social ads arrive with their own captions baked in, and ours landing
+        # on top of theirs is the thing that looks broken.
+        text_band = detect_text_band(source)
+        if text_band:
+            notes.append(
+                f"This ad already has text at {text_band.describe()}; "
+                "captions were placed clear of it."
+            )
+    else:
         for v in plan.edl.variations:
             v.captions = []
 
@@ -417,6 +448,7 @@ def run(
             fit=fit,
             watermark=opts.watermark,
             content_crop=content_crop,
+            avoid_text=text_band,
         )
 
     workers = min(_render_workers(), total) or 1
@@ -441,6 +473,7 @@ def run(
         plan=plan,
         clips=clips,
         content_crop=content_crop,
+        text_band=text_band,
         wall_s=time.perf_counter() - started,
         warnings=notes,
         stage_seconds=clock.close(),
