@@ -181,7 +181,8 @@ type ApiJob = {
   category: string | null;
   product: string | null;
   planned: { strategy: string; title: string; logline: string }[];
-  variations: ApiVariation[];
+  /** A slot is null until its cut has rendered; they finish in any order. */
+  variations: (ApiVariation | null)[];
   warnings: string[];
 };
 
@@ -296,6 +297,9 @@ function placeholderVariations(jobId: string): Variation[] {
 /** Merge an API snapshot into the Job the screens hold. */
 function fromApi(job: Job, api: ApiJob): Job {
   const stage = STAGE_MAP[api.stage] ?? job.stage;
+  // Slots the pipeline has not filled yet arrive as null, because the cuts
+  // render in parallel and each one is placed at its own index rather than
+  // appended. A null simply means that slot is still rendering.
   const done = api.variations ?? [];
   const planned = api.planned ?? [];
   const slots = Math.max(3, planned.length, done.length);
@@ -337,7 +341,7 @@ function fromApi(job: Job, api: ApiJob): Job {
       src: "",
       poster: "",
       duration: "",
-      status: stage === "rendering" && i === done.length ? "rendering" : "pending",
+      status: stage === "rendering" ? "rendering" : "pending",
       downloaded: false,
       ...emptyVersions(),
     };
@@ -554,7 +558,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
               toast("Your 3 variations are ready 🎉");
               if (api.warnings?.length) console.info("[pipeline]", api.warnings);
             }
-            if (!(api.variations ?? []).some((v) => v.status === "refining")) {
+            if (!(api.variations ?? []).some((v) => v?.status === "refining")) {
               stopPolling(jobId);
             }
           } else if (api.stage === "failed") {

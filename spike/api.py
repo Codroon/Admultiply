@@ -227,13 +227,24 @@ def _run_job(job_id: str, source: Path, opts: Options) -> None:
 
     def progress(stage: str, detail: str) -> None:
         if stage == "rendering":
-            n = detail.split(" of ")[0] if " of " in detail else "1"
-            text = f"Rendering variation {n} of 3…"
+            # The cuts render together now, so the pipeline reports how many
+            # are finished rather than which one is running. "Rendering
+            # variation 0 of 3" was the old phrasing meeting the new count.
+            done, _, total = detail.partition(" of ")
+            text = (
+                f"{done} of {total} cuts ready…"
+                if done.isdigit() and done != "0"
+                else "Cutting your three micro-ads…"
+            )
         else:
             text = DETAIL.get(stage, detail)
         _update(job_id, stage=stage, detail=text)
 
     def on_plan(variations: list[dict], brief: Brief) -> None:
+        # Size the slots now that the count is known. The cuts render in
+        # parallel and land in any order, so each one is placed at its own
+        # index; a slot still waiting stays null, which the dashboard already
+        # reads as "not ready yet".
         _update(
             job_id,
             category=brief.format,
@@ -242,6 +253,7 @@ def _run_job(job_id: str, source: Path, opts: Options) -> None:
                 {"strategy": v["strategy"], "title": v["title"], "logline": v["logline"]}
                 for v in variations
             ],
+            variations=[None] * len(variations),
         )
 
     def on_clip(index: int, clip: RenderResult, why: dict) -> None:
@@ -259,7 +271,12 @@ def _run_job(job_id: str, source: Path, opts: Options) -> None:
         }
         with _lock:
             job = _jobs[job_id]
-            job.setdefault("variations", []).append(entry)
+            slots = job.setdefault("variations", [])
+            # on_plan sizes this, but never trust that: a short list here would
+            # silently drop a finished cut.
+            while len(slots) <= index:
+                slots.append(None)
+            slots[index] = entry
             job["updated_at"] = time.time()
             _save(job)
 
@@ -362,6 +379,8 @@ class RefineRequest(BaseModel):
 def _run_refine(job_id: str, index: int, intent: str, note: str) -> None:
     job = _jobs[job_id]
     variation = job["variations"][index]
+    if variation is None:
+        raise HTTPException(409, "That cut is still rendering")
     angle = variation["strategy"]
     n = len(variation["versions"]) + 1
 
@@ -416,6 +435,8 @@ def refine_variation(job_id: str, index: int, req: RefineRequest) -> dict:
         raise HTTPException(404, "No such variation")
 
     variation = job["variations"][index]
+    if variation is None:
+        raise HTTPException(409, "That cut is still rendering")
     if variation.get("status") == "refining":
         raise HTTPException(409, "Already refining this one")
     if variation.get("refines_used", 0) >= MAX_REFINES:
@@ -446,6 +467,8 @@ def set_active_version(job_id: str, index: int, n: int) -> dict:
     if not job or index >= len(job.get("variations", [])):
         raise HTTPException(404, "No such variation")
     variation = job["variations"][index]
+    if variation is None:
+        raise HTTPException(404, "No such variation")
     picked = next((v for v in variation["versions"] if v["n"] == n), None)
     if picked is None:
         raise HTTPException(404, "No such version")

@@ -86,6 +86,26 @@ WATERMARK_IMAGE = Path(__file__).resolve().parent / "assets" / "watermark.png"
 WATERMARK_TOP = 44  # px from the top of the 1080x1920 frame
 
 
+def _preset() -> str:
+    """x264 preset, from X264_PRESET. Default `veryfast`.
+
+    Measured on a real cut, 16s at 1080x1920, against `medium` which this was:
+
+        preset      time   speedup    size    SSIM      PSNR
+        medium      7.7s     1.00x   7.86MB   0.99452   49.06 dB
+        fast        6.0s     1.29x   8.28MB   0.99458   49.05 dB
+        faster      4.7s     1.62x   7.96MB   0.99423   48.66 dB
+        veryfast    2.8s     2.70x   6.95MB   0.99332   47.62 dB
+
+    `veryfast` is 2.7 times faster, produces a smaller file, and gives up
+    0.0012 of SSIM. Both ends of that range are far above visually lossless,
+    and the platforms re-encode everything anyway, so the difference does not
+    survive to the viewer. It also halves peak memory, 263 MB against 551 MB,
+    which is what makes rendering the cuts in parallel affordable.
+    """
+    return os.environ.get("X264_PRESET", "").strip() or "veryfast"
+
+
 def _ffmpeg_threads() -> int | None:
     """How many threads FFmpeg may use, from FFMPEG_THREADS. None means auto.
 
@@ -450,7 +470,7 @@ def render_variation(
         args += ["-an"]
     args += [
         "-c:v", "libx264",
-        "-preset", "medium",
+        "-preset", _preset(),
         *(["-threads", str(threads)] if threads else []),
         "-crf", "20",
         "-pix_fmt", "yuv420p",

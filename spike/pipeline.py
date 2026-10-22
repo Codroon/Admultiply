@@ -14,7 +14,9 @@ Stages, in order:
 from __future__ import annotations
 
 import json
+import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -37,6 +39,55 @@ OnPlan = Callable[[list[dict], Brief], None]
 OnClip = Callable[[int, RenderResult, dict], None]
 
 STAGES = ["probing", "analyzing", "transcribing", "understanding", "planning", "rendering", "ready"]
+
+
+def _render_workers() -> int:
+    """How many cuts to render at once, from RENDER_WORKERS. Default 2.
+
+    Measured, 16s cuts at 1080x1920 on the veryfast preset with 2 threads each:
+
+        1 at a time    21s total (3 x 7s)   263 MB peak
+        2 at a time    ~14s                 ~525 MB peak
+        3 at a time    10.2s                786 MB peak
+
+    Each render is a subprocess, so threads here only wait on them and the
+    interpreter lock is not a factor. The ceiling is memory: three at once plus
+    the API is about 850 MB, which fits a 1 GB container with little to spare
+    and leaves nothing for a larger source. Two is the default because it takes
+    most of the gain for two thirds of the memory; raise it where there is room.
+    """
+    raw = os.environ.get("RENDER_WORKERS", "").strip()
+    return max(1, int(raw)) if raw.isdigit() else 2
+
+
+class StageClock:
+    """Seconds spent in each stage, accumulated as the pipeline moves.
+
+    The client's first complaint about the deployed product was that it takes
+    too long, and nothing recorded where the time went, so the only honest
+    answer was a guess. Every stage change passes through `mark`, repeated
+    stages accumulate rather than overwrite (rendering is announced once per
+    cut), and the result rides along in the report. Costs nothing and means the
+    next speed question is answered with a measurement.
+    """
+
+    def __init__(self) -> None:
+        self._totals: dict[str, float] = {}
+        self._stage: str | None = None
+        self._since = time.perf_counter()
+
+    def mark(self, stage: str) -> None:
+        now = time.perf_counter()
+        if self._stage and stage != self._stage:
+            self._totals[self._stage] = self._totals.get(self._stage, 0.0) + (now - self._since)
+            self._since = now
+        elif self._stage is None:
+            self._since = now
+        self._stage = stage
+
+    def close(self) -> dict[str, float]:
+        self.mark("__done__")
+        return {k: round(v, 2) for k, v in self._totals.items()}
 
 
 @dataclass
@@ -62,6 +113,7 @@ class Result:
     content_crop: ContentCrop | None
     wall_s: float
     warnings: list[str] = field(default_factory=list)
+    stage_seconds: dict[str, float] = field(default_factory=dict)
 
     @property
     def ai_cost_usd(self) -> float:
@@ -80,6 +132,7 @@ class Result:
             "duration_s": round(self.source.duration, 2),
             "resolution": f"{self.source.width}x{self.source.height}",
             "wall_clock_s": round(self.wall_s, 1),
+            "stage_seconds": self.stage_seconds,
             "cost": {
                 "twelvelabs_usd": round(self.visual.cost_usd, 5) if self.visual else 0.0,
                 "whisper_usd": round(self.transcript.cost_usd, 5),
@@ -236,7 +289,10 @@ def run(
         raise RuntimeError("OPENAI_API_KEY is not set in .env.local")
     tl_key = env.get("TWELVELABS_API_KEY", "")
 
+    clock = StageClock()
+
     def progress(stage: str, detail: str = "") -> None:
+        clock.mark(stage)
         if on_progress:
             on_progress(stage, detail)
 
@@ -337,20 +393,45 @@ def run(
         on_plan(plan.reasoning["variations"], brief)
 
     # --------------------------------------------------------------- render
-    clips: list[RenderResult] = []
+    #
+    # The cuts are independent, so they render together rather than one after
+    # another. Two things this has to keep straight:
+    #
+    #   * `on_clip` carries the slot index, and a cut that finishes second may
+    #     belong in slot three. Anything storing these has to place by index,
+    #     not append, or the dashboard labels a cut with another one's angle.
+    #   * `progress` is called from worker threads, so it reports how many are
+    #     done rather than which one is running; "2 of 3" was only meaningful
+    #     while they were sequential.
     total = len(plan.edl.variations)
-    for i, (v, why) in enumerate(zip(plan.edl.variations, plan.reasoning["variations"]), 1):
+    pairs = list(zip(plan.edl.variations, plan.reasoning["variations"]))
+    results: list[RenderResult | None] = [None] * total
+    finished = 0
+    progress("rendering", f"0 of {total}")
+
+    def render_one(index: int) -> None:
+        v, why = pairs[index]
         fit = why["reframe"] if opts.fit == "auto" else opts.fit
-        progress("rendering", f"{i} of {total}: {v.strategy}")
-        clip = render_variation(
+        results[index] = render_variation(
             v, source, out_dir,
             fit=fit,
             watermark=opts.watermark,
             content_crop=content_crop,
         )
-        clips.append(clip)
-        if on_clip:
-            on_clip(i - 1, clip, why)
+
+    workers = min(_render_workers(), total) or 1
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(render_one, i): i for i in range(total)}
+        for future in as_completed(futures):
+            index = futures[future]
+            future.result()  # re-raise inside the pipeline, as a sequential loop would
+            finished += 1
+            progress("rendering", f"{finished} of {total}")
+            clip = results[index]
+            if on_clip and clip is not None:
+                on_clip(index, clip, pairs[index][1])
+
+    clips: list[RenderResult] = [c for c in results if c is not None]
 
     result = Result(
         source=source,
@@ -362,6 +443,7 @@ def run(
         content_crop=content_crop,
         wall_s=time.perf_counter() - started,
         warnings=notes,
+        stage_seconds=clock.close(),
     )
 
     out_dir.mkdir(parents=True, exist_ok=True)

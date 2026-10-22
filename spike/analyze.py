@@ -131,7 +131,12 @@ def wait_ready(asset_id: str, api_key: str, *, timeout_s: int = 600) -> None:
         if status == "failed":
             raise RuntimeError(f"TwelveLabs failed to process the asset: {data}")
         time.sleep(delay)
-        delay = min(delay * 1.4, 15.0)  # back off; these take seconds to minutes
+        # Back off, but not far. At a 15s cap an asset that became ready a
+        # second after the previous poll sat idle for the rest of the interval,
+        # and that wait is pure dead time in front of a customer watching a
+        # progress screen. 3s costs a handful of extra requests and gives back
+        # most of it.
+        delay = min(delay * 1.3, 3.0)
     raise TimeoutError(f"Asset {asset_id} was not ready within {timeout_s}s.")
 
 
