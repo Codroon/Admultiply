@@ -7,6 +7,7 @@ import {
   Download,
   Loader2,
   Lock,
+  Play,
   Scissors,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -53,48 +54,8 @@ function ResultsInner({ job, title }: { job: Job; title?: string }) {
         <Badge tone="brand">{job.category}</Badge>
       </div>
 
-      {/* Which cut */}
-      <div className="mb-4 flex flex-wrap gap-1.5">
-        {job.variations.map((v, i) => {
-          const on = i === selected;
-          return (
-            <button
-              key={v.id}
-              onClick={() => setSelected(i)}
-              className={`relative rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                on
-                  ? "text-white"
-                  : "text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] dark:text-[var(--color-ink-dark-muted)] dark:hover:text-white"
-              }`}
-            >
-              {on && (
-                <motion.span
-                  layoutId="resultTab"
-                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                  className="absolute inset-0 rounded-full bg-brand-500"
-                />
-              )}
-              <span className="relative z-10 flex items-center gap-1.5">
-                {v.strategy}
-                {v.status === "refining" && (
-                  <Loader2 size={11} className="animate-spin" />
-                )}
-                {v.versions.length > 1 && (
-                  <span
-                    className={`rounded px-1 text-[9px] font-bold ${
-                      on ? "bg-white/25" : "bg-black/10 dark:bg-white/15"
-                    }`}
-                  >
-                    v{v.versions[v.active]?.n ?? 1}
-                  </span>
-                )}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+      <div className="flex flex-col">
+      <div className="order-2 grid gap-5 lg:order-1 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
         {/* Hero player */}
         <AnimatePresence mode="wait">
           <motion.div
@@ -160,6 +121,90 @@ function ResultsInner({ job, title }: { job: Job; title?: string }) {
           <RefinePanel job={job} variation={active} />
         </div>
       </div>
+
+      {/* Which cut.
+
+          Order differs by screen on purpose. On a phone the player alone is
+          most of the viewport, so a strip underneath it is a scroll away and
+          invisible exactly when it needs to be found; it goes above. On a
+          desktop both fit at once and it sits under the player, where the
+          slots were while the job processed.
+
+          These were text pills. The client took several seconds to work out
+          that "Problem to Solution" and the rest were the videos rather than
+          labels, and the reason is that the shape changed underneath her:
+          while the job processes she watches three video slots fill in, then
+          the moment it finishes those slots vanish and are replaced by words.
+
+          So the three stay as pictures from start to finish. The one playing
+          is marked, the others are obviously more videos, and clicking one
+          brings it up into the player. */}
+      <div className="order-1 mb-5 grid grid-cols-3 gap-2.5 lg:order-2 lg:mb-0 lg:mt-6 sm:max-w-md">
+        {job.variations.map((v, i) => {
+          const on = i === selected;
+          const version = v.versions[v.active];
+          return (
+            <button
+              key={v.id}
+              onClick={() => setSelected(i)}
+              aria-pressed={on}
+              aria-label={`Show ${v.label || v.strategy}`}
+              className="group min-w-0 text-left"
+            >
+              <span
+                className={`relative block overflow-hidden rounded-lg ring-2 transition-all ${
+                  on
+                    ? "ring-brand-500"
+                    : "opacity-70 ring-transparent group-hover:opacity-100 group-hover:ring-black/10 dark:group-hover:ring-white/20"
+                }`}
+              >
+                <span className="block aspect-[9/16] bg-zinc-950">
+                  {v.poster ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={v.poster}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : null}
+                </span>
+
+                {/* The one in the player, said plainly rather than by colour alone */}
+                {on && (
+                  <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-brand-500 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                    <Play size={8} className="fill-white" />
+                    Playing
+                  </span>
+                )}
+
+                {v.status === "refining" && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/60">
+                    <Loader2 size={14} className="animate-spin text-white" />
+                  </span>
+                )}
+
+                {version && version.n > 1 && (
+                  <span className="absolute right-1 top-1 rounded bg-black/65 px-1 text-[9px] font-bold text-white">
+                    v{version.n}
+                  </span>
+                )}
+              </span>
+
+              <span
+                className={`mt-1.5 block truncate text-[11px] font-semibold transition-colors ${
+                  on
+                    ? "text-brand-600 dark:text-brand-400"
+                    : "text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]"
+                }`}
+              >
+                {v.strategy}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      </div>
+
     </section>
   );
 }
