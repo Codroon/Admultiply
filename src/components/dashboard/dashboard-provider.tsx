@@ -379,6 +379,31 @@ async function refusal(res: Response, fallback: string): Promise<string> {
 const forCustomer = (e: unknown, fallback: string) =>
   e instanceof TypeError ? UNREACHABLE : e instanceof Error && e.message ? e.message : fallback;
 
+/* Moving a token, for real.
+ *
+ * With an account the balance lives in the database and only these two
+ * database functions change it, so a refresh cannot undo a spend and two tabs
+ * cannot spend the same last one. Without an account there is nothing to call
+ * and the demo keeps its own count.
+ *
+ * Returns the new balance, or null when the move did not happen, which the
+ * caller must treat as "do not start the job".
+ */
+async function moveToken(action: "spend" | "refund"): Promise<number | null> {
+  try {
+    const res = await fetch("/api/account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body?.ok) return null;
+    return typeof body.tokens === "number" ? body.tokens : null;
+  } catch {
+    return null;
+  }
+}
+
 /* ------------------------------------------------------------------------ */
 /* Demo mode: simulated pipeline                                             */
 /* ------------------------------------------------------------------------ */
@@ -432,11 +457,38 @@ const PLAN_LINES = [
 
 /* ------------------------------------------------------------------------ */
 
-export function DashboardProvider({ children }: { children: ReactNode }) {
+/* What the server already knows about whoever is signed in.
+   Null means no account, which is the demo path. */
+export type Account = {
+  id: string;
+  email: string;
+  name: string;
+  plan: string;
+  tokens: number;
+};
+
+export function DashboardProvider({
+  children,
+  account = null,
+}: {
+  children: ReactNode;
+  account?: Account | null;
+}) {
   const toast = useToast();
   const [hydrated, setHydrated] = useState(false);
-  const [state, setState] = useState<State>(INITIAL_STATE);
+  const [state, setState] = useState<State>(() =>
+    account
+      ? {
+          ...INITIAL_STATE,
+          userName: account.name,
+          email: account.email,
+          plan: account.plan as PlanId,
+          tokens: account.tokens,
+        }
+      : INITIAL_STATE
+  );
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const hasAccount = Boolean(account);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const pollers = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
 
@@ -450,6 +502,17 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           ...INITIAL_STATE,
           ...parsed,
           jobs: Array.isArray(parsed.jobs) ? parsed.jobs.map(reviveJob) : [],
+          // The server is the authority on who this is and what they have.
+          // Letting a stale local copy win here is how someone ends up looking
+          // at another account's name, or at a balance they already spent.
+          ...(account
+            ? {
+                userName: account.name,
+                email: account.email,
+                plan: account.plan as PlanId,
+                tokens: account.tokens,
+              }
+            : {}),
         };
         saved.jobs = saved.jobs.map((j) => ({
           ...j,
@@ -466,7 +529,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       }
     } catch {}
     setHydrated(true);
-  }, []);
+  }, [account]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -565,6 +628,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             stopPolling(jobId);
             // Token reserved at submit comes back on failure, mirrors the ledger.
             setState((s) => ({ ...s, tokens: s.tokens + 1 }));
+            if (hasAccount) void moveToken("refund");
             toast(api.error ?? "Processing failed", "error");
           }
         } catch {
@@ -574,7 +638,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       tick();
       pollers.current.set(jobId, setInterval(tick, POLL_MS));
     },
-    [patchJob, stopPolling, toast]
+    [patchJob, stopPolling, toast, hasAccount]
   );
 
   // Resume polling any job that was mid-flight when the page loaded.
@@ -610,10 +674,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           const message = forCustomer(e, "That upload didn't go through. Please try again.");
           patchJob(job.id, { stage: "failed", substatus: message });
           setState((s) => ({ ...s, tokens: s.tokens + 1 }));
+          if (hasAccount) void moveToken("refund");
           toast(message, "error");
         });
     },
-    [state.plan, poll, patchJob, toast]
+    [state.plan, poll, patchJob, toast, hasAccount]
   );
 
   /* ---------------------------------------------------------------- demo */
@@ -674,6 +739,17 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     (file: File, meta: { duration: string }, opts: JobOptions = {}): "ok" | "no-tokens" => {
       if (state.tokens <= 0) return "no-tokens";
 
+      // With an account the spend is the database's call. It is fired here and
+      // reconciled when it answers: blocking the upload on a round trip would
+      // make the one action this product exists for feel slow, and the job
+      // itself is refunded on failure anyway.
+      if (hasAccount) {
+        void moveToken("spend").then((left) => {
+          if (left === null) return;
+          setState((s) => ({ ...s, tokens: left }));
+        });
+      }
+
       const id = `job_${Date.now().toString(36)}`;
       const job: Job = {
         id,
@@ -721,7 +797,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       else startDemo(id, job.category);
       return "ok";
     },
-    [state.tokens, state.jobs.length, startLive, startDemo]
+    [state.tokens, state.jobs.length, startLive, startDemo, hasAccount]
   );
 
   const download = useCallback(
@@ -874,9 +950,20 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const setPlan = useCallback(
     (p: PlanId) => {
       setState((s) => ({ ...s, plan: p, tokens: Math.max(s.tokens, getPlan(p).tokens) }));
-      toast(`Plan switched to ${getPlan(p).name} (demo)`, "info");
+      // Still the demo control it always was, real plan changes arrive with
+      // Stripe. With an account it is written to the profile so it survives a
+      // reload and a different device, which is what the client needs when she
+      // switches to Plus to try captions and re-cuts.
+      if (hasAccount) {
+        void fetch("/api/account", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan: p }),
+        }).catch(() => {});
+      }
+      toast(`Plan switched to ${getPlan(p).name}`, "info");
     },
-    [toast]
+    [toast, hasAccount]
   );
 
   const resetDemo = useCallback(() => {

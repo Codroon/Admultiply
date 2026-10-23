@@ -19,7 +19,7 @@ import { WorkspaceSurface, WorkspaceThemeProvider } from "./workspace-theme";
 import { WorkspaceToggle } from "./workspace-toggle";
 import { ToastProvider } from "@/components/ui/toast";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
-import { DashboardProvider, useDashboard } from "./dashboard-provider";
+import { DashboardProvider, useDashboard, type Account } from "./dashboard-provider";
 import { UpgradeModal } from "./upgrade-modal";
 import { getPlan, upgradeCta } from "@/lib/plans";
 
@@ -38,12 +38,18 @@ const PAGE_TITLES: Record<string, string> = {
 
 const SIDEBAR_KEY = "admultiply-sidebar-collapsed";
 
-export function DashboardShell({ children }: { children: ReactNode }) {
+export function DashboardShell({
+  children,
+  account = null,
+}: {
+  children: ReactNode;
+  account?: Account | null;
+}) {
   return (
     <WorkspaceThemeProvider>
       <WorkspaceSurface>
         <ToastProvider>
-          <DashboardProvider>
+          <DashboardProvider account={account}>
             <ShellInner>{children}</ShellInner>
             <UpgradeModal />
           </DashboardProvider>
