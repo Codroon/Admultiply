@@ -30,7 +30,7 @@ export function ScaleCta() {
           </p>
 
           <motion.a
-            href="/waitlist"
+            href="/signup"
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             className="group mt-8 inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-brand-600 shadow-lg transition-shadow hover:shadow-xl"

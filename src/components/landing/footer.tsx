@@ -83,10 +83,10 @@ export function Footer() {
               rather scale what already works than start from nothing.
             </p>
             <a
-              href="/waitlist"
+              href="/signup"
               className="group mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-ink)] transition-colors hover:text-brand-600 dark:text-white dark:hover:text-brand-400"
             >
-              Join the waitlist
+              Get started
               <ArrowUpRight
                 size={15}
                 className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"

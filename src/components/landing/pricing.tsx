@@ -164,7 +164,7 @@ function PlanBody({
       </ul>
 
       <a
-        href="/waitlist"
+        href="/signup"
         className={`mt-5 inline-flex w-full items-center justify-center rounded-full px-4 py-2.5 text-xs font-semibold transition-colors ${
           highlighted
             ? "bg-white text-brand-600 hover:bg-white/90"

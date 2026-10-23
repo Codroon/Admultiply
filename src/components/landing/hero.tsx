@@ -90,7 +90,7 @@ export function Hero() {
           className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
         >
           <a
-            href="/waitlist"
+            href="/signup"
             className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-500 px-7 py-3.5 text-sm font-semibold text-white shadow-[0_8px_28px_-10px_rgba(249,115,22,0.75)] transition-all hover:bg-brand-600 dark:shadow-[0_8px_32px_-8px_rgba(249,115,22,0.8)] dark:hover:bg-brand-400 sm:w-auto"
           >
             Start for free

@@ -29,7 +29,7 @@ export function FinalCta() {
         </h2>
 
         <motion.a
-          href="/waitlist"
+          href="/signup"
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={viewportOnce}

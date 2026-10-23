@@ -63,12 +63,22 @@ export function Nav() {
 
         <div className="flex items-center gap-2 sm:gap-3">
           <ThemeToggle />
+          {/* Two actions now that accounts exist. Returning customers are the
+              quieter of the two: they already know where they are going, and
+              the loud button belongs to the people who do not. It stays on a
+              phone as well, tighter, because sending someone who already pays
+              us through a signup screen to find the way back in is rude. */}
           <a
-            href="/waitlist"
+            href="/login"
+            className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-2 text-sm font-medium text-[var(--color-ink-muted)] transition-colors hover:text-[var(--color-ink)] dark:text-[var(--color-ink-dark-muted)] dark:hover:text-white sm:px-3"
+          >
+            Log in
+          </a>
+          <a
+            href="/signup"
             className="inline-flex items-center whitespace-nowrap rounded-full bg-brand-500 px-3.5 py-2 text-sm font-semibold text-white shadow-sm shadow-brand-500/30 transition-all hover:bg-brand-600 hover:shadow-md sm:px-4"
           >
-            <span className="sm:hidden">Join Waitlist</span>
-            <span className="hidden sm:inline">Join the Waitlist</span>
+            Get started
           </a>
         </div>
       </div>

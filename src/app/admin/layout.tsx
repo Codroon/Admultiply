@@ -27,9 +27,12 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Without Supabase there are no accounts at all, and this is the mocked
-  // demo it has always been, running locally.
-  if (isAuthConfigured) {
+  // Running locally with no Supabase there are no accounts at all, and this
+  // is the clickable mock it has always been. In production it is guarded
+  // either way: an unset environment variable must never be the thing
+  // standing between a stranger and every customer's billing.
+  const openDemo = !isAuthConfigured && process.env.NODE_ENV !== "production";
+  if (!openDemo) {
     const account = await currentAccount();
     if (account?.role !== "admin") notFound();
   }
