@@ -64,7 +64,13 @@ export async function POST(req: NextRequest) {
     );
 
   if (error) {
-    console.error("[waitlist] insert failed:", error.message);
+    // Log the address itself, on one greppable line. When the database is
+    // unreachable, which is what a paused Supabase project looks like, this
+    // line is the only remaining record that someone tried to sign up, and a
+    // lead recovered from a log beats a lead lost entirely.
+    console.error(
+      `[waitlist] LOST SIGNUP email=${email} company=${company || "-"} reason=${error.message}`
+    );
     return NextResponse.json(
       { ok: false, error: "We couldn't save your signup right now. Please try again in a moment." },
       { status: 500 }
