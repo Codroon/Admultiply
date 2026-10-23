@@ -55,3 +55,6 @@ __pycache__/
 *.mov
 *.avi
 !public/**/*.mp4
+
+# Supabase CLI scratch
+supabase/.temp/
