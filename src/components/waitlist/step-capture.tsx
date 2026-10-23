@@ -69,7 +69,7 @@ export function StepCapture({
           <span className="absolute h-1.5 w-1.5 animate-ping rounded-full bg-brand-500" />
           <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
         </span>
-        Launching this September 🚀
+        Launching this November 🚀
       </motion.span>
 
       <motion.h1

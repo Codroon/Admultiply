@@ -70,7 +70,7 @@ export function StepSuccess() {
         transition={{ duration: 0.5, delay: 0.9 }}
         className="mt-7 text-sm font-semibold text-brand-600 dark:text-brand-400"
       >
-        Launching September 2026.
+        Launching November 2026.
       </motion.p>
     </div>
   );

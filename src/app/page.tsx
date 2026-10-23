@@ -6,7 +6,7 @@ import { WaitlistFlow } from "@/components/waitlist/waitlist-flow";
 export const metadata: Metadata = {
   title: "AdMultiply, Join the Waitlist",
   description:
-    "Creative fatigue killing your ROAS? Join the AdMultiply waitlist for early access, free trial tokens, and exclusive launch pricing. Launching September 2026.",
+    "Creative fatigue killing your ROAS? Join the AdMultiply waitlist for early access, free trial tokens, and exclusive launch pricing. Launching November 2026.",
 };
 
 export default function HomePage() {
