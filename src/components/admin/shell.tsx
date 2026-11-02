@@ -254,9 +254,24 @@ function AccountMenu({ name, email }: { name: string; email: string }) {
         <Link href="/dashboard">
           <DropdownItem icon={<ExternalLink size={14} />}>Customer view</DropdownItem>
         </Link>
-        <DropdownItem icon={<LogOut size={14} />} danger>
-          Log out
-        </DropdownItem>
+        {/* A form, not an onClick, because signing out is a POST. A GET would
+            let any other site sign someone out with an image tag, and a real
+            form still works if the JavaScript has not loaded.
+
+            stopPropagation is load bearing. The menu panel closes itself on
+            any click inside it, and a submit button that leaves the DOM before
+            the browser gets to it submits nothing. Letting the menu stay open
+            costs nothing here, the page navigates away a moment later. */}
+        <form action="/auth/signout" method="post">
+          <DropdownItem
+            type="submit"
+            onClick={(event) => event.stopPropagation()}
+            icon={<LogOut size={14} />}
+            danger
+          >
+            Log out
+          </DropdownItem>
+        </form>
       </div>
     </Dropdown>
   );

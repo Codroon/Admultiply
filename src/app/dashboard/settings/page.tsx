@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { LogOut, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
@@ -114,6 +114,27 @@ export default function SettingsPage() {
             <RotateCcw size={13} />
             Reset demo data
           </Button>
+        </div>
+      </Card>
+
+      {/* Log out lives here as well as in the sidebar menu, because the
+          sidebar is desktop only. On a phone the sidebar is hidden and this
+          page, reachable from the bottom bar, is the only way out. */}
+      <Card className="p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold">Log out</h2>
+            <p className="mt-0.5 text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
+              Sign out of AdMultiply on this device.
+            </p>
+          </div>
+          {/* A POST, so no other site can sign someone out with an image tag. */}
+          <form action="/auth/signout" method="post">
+            <Button type="submit" variant="secondary" size="md">
+              <LogOut size={14} />
+              Log out
+            </Button>
+          </form>
         </div>
       </Card>
     </div>

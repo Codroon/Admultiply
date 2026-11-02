@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+/* React's MouseEvent is aliased. Imported under its own name it shadows the
+   DOM MouseEvent that the outside-click listener below is typed against. */
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 export function Dropdown({
@@ -56,15 +64,19 @@ export function DropdownItem({
   icon,
   children,
   danger = false,
+  type = "button",
 }: {
-  onClick?: () => void;
+  onClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   icon?: ReactNode;
   children: ReactNode;
   danger?: boolean;
+  /* "submit" lets an item post the form it sits in. Log out needs that,
+     because signing out has to be a POST rather than a link. */
+  type?: "button" | "submit";
 }) {
   return (
     <button
-      type="button"
+      type={type}
       onClick={onClick}
       className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
         danger
