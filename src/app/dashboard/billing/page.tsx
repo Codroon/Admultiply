@@ -138,9 +138,11 @@ function PlanBody({
           /mo
         </span>
       </div>
-      <p className="mt-0.5 text-xs font-medium text-brand-600 dark:text-brand-400">
-        {p.blurb}
-      </p>
+      {p.blurb && (
+        <p className="mt-0.5 text-xs font-medium text-brand-600 dark:text-brand-400">
+          {p.blurb}
+        </p>
+      )}
       <ul className="mt-3 flex-1 space-y-1.5">
         {p.features.map((f) => (
           <li key={f} className="flex items-start gap-2 text-xs">

@@ -10,10 +10,13 @@ import { authCallbackUrl } from "@/lib/supabase/env";
 
 /* Signing in and signing up, which are the same form with different words.
  *
- * Three routes in, because they fail for different people: a password for
- * anyone who already has one, a magic link for everyone who will otherwise
- * click "forgot password" in a month, and Google for people who never wanted
- * a password at all.
+ * The email link is the default, on purpose. A password is a thing people
+ * invent at the door, forget, and then need a reset flow to recover, and the
+ * whole exchange buys us nothing: the email still has to be verified either
+ * way. So the quickest honest route in is the one offered first, and anyone
+ * who would rather keep a password is one tap away.
+ *
+ * Google sits above both for people who never wanted either.
  *
  * The Google button only appears when the provider is actually switched on in
  * Supabase. A button that reliably returns an error is worse than no button,
@@ -36,7 +39,7 @@ export function AuthForm({
   const params = useSearchParams();
   const next = params.get("next") ?? "/dashboard";
 
-  const [method, setMethod] = useState<Method>("password");
+  const [method, setMethod] = useState<Method>("link");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -254,7 +257,7 @@ export function AuthForm({
           className="mt-3 w-full text-center text-xs font-medium text-[var(--color-ink-muted)] underline underline-offset-2 transition-colors hover:text-[var(--color-ink)] dark:text-[var(--color-ink-dark-muted)] dark:hover:text-white"
         >
           {method === "password"
-            ? "Use a one time email link instead"
+            ? "Email me a link instead, no password needed"
             : "Use a password instead"}
         </button>
       </form>

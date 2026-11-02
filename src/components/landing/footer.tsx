@@ -79,8 +79,9 @@ export function Footer() {
               </span>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-[var(--color-ink-muted)] dark:text-white/50">
-              One winning ad in, three micro-ads out. Built for teams who would
-              rather scale what already works than start from nothing.
+              Turn high-performing ads into fresh, ready-to-test micro
+              variations in seconds. Spend less time creating from scratch and
+              more time testing, optimising and scaling what works.
             </p>
             <a
               href="/signup"

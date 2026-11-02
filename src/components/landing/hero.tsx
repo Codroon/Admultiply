@@ -56,18 +56,20 @@ export function Hero() {
           className="inline-flex items-center gap-2 rounded-full bg-black/[0.04] px-3.5 py-1.5 text-xs font-medium text-[var(--color-ink-muted)] ring-1 ring-black/[0.07] backdrop-blur transition-colors hover:bg-black/[0.07] hover:text-[var(--color-ink)] dark:bg-white/[0.06] dark:text-white/70 dark:ring-white/10 dark:hover:bg-white/[0.1] dark:hover:text-white"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
-          AI that re-cuts your winning ads
+          Your AI-Powered Creative Performance Partner
           <ArrowRight size={12} className="opacity-50" />
         </motion.a>
 
         {/* Line by line, each rising out of its own mask */}
         <h1 className="display mt-7 text-[var(--color-ink)] dark:text-white">
           <span className="reveal-line">
-            <span style={{ animationDelay: "0.08s" }}>Multiply what</span>
+            <span style={{ animationDelay: "0.08s" }}>
+              Multiply your best-performing ads
+            </span>
           </span>
           <span className="reveal-line">
             <span style={{ animationDelay: "0.2s" }} className="text-brand-500">
-              already works.
+              Maximise your ROI.
             </span>
           </span>
         </h1>
@@ -78,9 +80,9 @@ export function Hero() {
           transition={{ duration: 0.7, delay: 0.5 }}
           className="mx-auto mt-7 max-w-xl text-base leading-relaxed text-[var(--color-ink-muted)] dark:text-white/60 sm:text-lg"
         >
-          Upload one ad that&apos;s already converting. Get three vertical cuts
-          built from its strongest moments, ready for TikTok, Reels and Shorts
-          in about a minute.
+          Turn your best-performing ads into multiple, ready-to-test creative
+          variations in seconds with AdMultiply. Beat ad fatigue, extend the
+          lifespan of your winning ads and get more from every creative.
         </motion.p>
 
         <motion.div
@@ -93,7 +95,7 @@ export function Hero() {
             href="/signup"
             className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-500 px-7 py-3.5 text-sm font-semibold text-white shadow-[0_8px_28px_-10px_rgba(249,115,22,0.75)] transition-all hover:bg-brand-600 dark:shadow-[0_8px_32px_-8px_rgba(249,115,22,0.8)] dark:hover:bg-brand-400 sm:w-auto"
           >
-            Start for free
+            Start for Free
             <ArrowRight
               size={16}
               className="transition-transform group-hover:translate-x-0.5"
@@ -109,7 +111,7 @@ export function Hero() {
                 className="ml-px fill-[var(--color-ink)] dark:fill-white"
               />
             </span>
-            See how it works
+            See How It Works
           </a>
         </motion.div>
 
@@ -119,11 +121,7 @@ export function Hero() {
           transition={{ duration: 0.7, delay: 0.78 }}
           className="mt-6 text-xs text-[var(--color-ink-muted)] opacity-80 dark:text-white/35 dark:opacity-100"
         >
-          No credit card
-          <span className="mx-2 text-brand-500/70">·</span>
-          1 upload = 3 variations
-          <span className="mx-2 text-brand-500/70">·</span>
-          Cancel any time
+          1 winning ad video = 3 new creative variations. Cancel anytime.
         </motion.p>
       </div>
 

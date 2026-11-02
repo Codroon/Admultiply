@@ -83,12 +83,18 @@
    Current landing pages run 90 to 120px, and at that scale tracking has to come
    in hard or the letters drift apart. These two classes carry the whole
    typographic shift; everything else is layout. */
+/* The hero headline, and only the hero headline.
+
+   Sized for the copy it actually carries. It was drawn at 6.5rem for a two
+   word line ("Multiply what / already works"), and the November copy runs to
+   five words, which at that size broke "best-performing" across lines at its
+   own hyphen. */
 .display {
   font-family: var(--font-display);
   font-weight: 800;
   letter-spacing: -0.038em;
-  line-height: 0.95;
-  font-size: clamp(2.75rem, 7.6vw, 6.5rem);
+  line-height: 1.0;
+  font-size: clamp(1.9rem, 5.2vw, 3.5rem);
 }
 
 /* Workspace scale. The dashboard is dense and functional, so its headings

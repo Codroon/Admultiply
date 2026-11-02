@@ -7,7 +7,8 @@ export type Plan = {
   id: PlanId;
   name: string;
   price: number;
-  blurb: string;
+  /** Optional line under the price. The paid tiers have none. */
+  blurb?: string;
   tokens: number;
   features: string[];
   cta: string;
@@ -21,29 +22,43 @@ export const PLANS: Plan[] = [
     id: "free",
     name: "Free",
     price: 0,
-    blurb: "Trial of AdMultiply AI",
+    blurb: "Trial AdMultiply for free today",
     tokens: 3,
-    features: ["3 video tokens / month", "Low-res videos", "Includes AdMultiply watermark"],
+    features: [
+      "3 video tokens / month",
+      "9 repurposed micro videos / month",
+      "Low-res videos",
+      "Includes AdMultiply watermark",
+    ],
     cta: "Start Free",
     hd: false,
   },
   {
     id: "plus",
-    name: "Plus",
-    price: 9,
-    blurb: "Trial of AdMultiply AI",
+    name: "Free Plus+",
+    price: 0,
+    blurb: "Trial AdMultiply for free today",
     tokens: 5,
-    features: ["5 video tokens / month", "Hi-res videos", "No watermark", "$1.80 per video repurposed"],
-    cta: "Get Plus",
+    features: [
+      "5 video tokens / month",
+      "15 repurposed micro videos / month",
+      "Hi-res videos",
+      "No watermark",
+    ],
+    cta: "Get Free Plus+",
     hd: true,
   },
   {
     id: "starter",
     name: "Starter",
-    price: 19,
-    blurb: "First videos free",
+    price: 16,
     tokens: 10,
-    features: ["10 video tokens / month", "Hi-res videos", "$1.90 per video repurposed"],
+    features: [
+      "10 video tokens / month",
+      "30 repurposed micro videos / month",
+      "Hi-res videos",
+      "$1.60 per video repurposed",
+    ],
     cta: "Get Starter",
     hd: true,
   },
@@ -51,9 +66,13 @@ export const PLANS: Plan[] = [
     id: "creator",
     name: "Creator",
     price: 39,
-    blurb: "First video free",
     tokens: 25,
-    features: ["25 video tokens / month", "Hi-res videos", "$1.56 per video repurposed"],
+    features: [
+      "25 video tokens / month",
+      "75 repurposed micro videos / month",
+      "Hi-res videos",
+      "$1.56 per video repurposed",
+    ],
     cta: "Get Creator",
     badge: "Most Popular",
     highlighted: true,
@@ -63,9 +82,13 @@ export const PLANS: Plan[] = [
     id: "pro",
     name: "Pro",
     price: 69,
-    blurb: "First video free",
     tokens: 50,
-    features: ["50 video tokens / month", "Hi-res videos", "$1.38 per video repurposed"],
+    features: [
+      "50 video tokens / month",
+      "150 repurposed micro videos / month",
+      "Hi-res videos",
+      "$1.38 per video repurposed",
+    ],
     cta: "Get Pro",
     hd: true,
   },
@@ -73,9 +96,13 @@ export const PLANS: Plan[] = [
     id: "business",
     name: "Business",
     price: 99,
-    blurb: "First video free",
     tokens: 80,
-    features: ["80 video tokens / month", "Hi-res videos", "$1.23 per video repurposed"],
+    features: [
+      "80 video tokens / month",
+      "240 repurposed micro videos / month",
+      "Hi-res videos",
+      "$1.23 per video repurposed",
+    ],
     cta: "Get Business",
     hd: true,
   },

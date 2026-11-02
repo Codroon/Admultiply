@@ -132,15 +132,19 @@ function PlanBody({
           /mo
         </span>
       </div>
-      <p
-        className={`mt-1 text-xs font-medium ${
-          highlighted
-            ? "text-white/85"
-            : "text-brand-600 dark:text-brand-400"
-        }`}
-      >
-        {plan.blurb}
-      </p>
+      {/* Only the two free tiers carry a line here. An empty paragraph
+          would leave a hole the same height as the text. */}
+      {plan.blurb && (
+        <p
+          className={`mt-1 text-xs font-medium ${
+            highlighted
+              ? "text-white/85"
+              : "text-brand-600 dark:text-brand-400"
+          }`}
+        >
+          {plan.blurb}
+        </p>
+      )}
 
       <div
         className={`my-4 h-px ${

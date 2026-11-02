@@ -19,13 +19,13 @@ export function ScaleCta() {
         <div className="pointer-events-none absolute -bottom-20 -right-10 h-56 w-56 rounded-full bg-black/10 blur-3xl" />
 
         <div className="relative">
-          <h2 className="mx-auto max-w-2xl display-sm text-white">
-            Beat Ad Fatigue. Scale What Works.
+          <h2 className="mx-auto max-w-2xl display-sm uppercase text-white">
+            Beat ad fatigue. Scale what works
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/85 sm:text-base">
             Maximise ROI from your best-performing ads with AdMultiply AI.
-            Transform winning 1+ minute ads into high-converting micro variations
-            in seconds, helping brands, agencies and creators beat creative
+            Transform winning ads into high-converting micro variations in
+            seconds. Helping brands, agencies and creators beat creative
             fatigue and scale profitable campaigns faster.
           </p>
 
@@ -41,6 +41,19 @@ export function ScaleCta() {
               className="transition-transform group-hover:translate-x-0.5"
             />
           </motion.a>
+
+          <p className="mt-4 text-xs text-white/75">
+            3 free tokens every month. 1 token = 1 video processed (up to 90
+            seconds).
+          </p>
+
+          <p className="mt-8 text-[11px] font-semibold uppercase tracking-wider text-white/60">
+            Trusted by Creators and Marketing teams
+          </p>
+          <p className="mt-3 text-sm text-white/85">
+            Try AdMultiply free. Generate up to 9 fresh creative variations
+            every month
+          </p>
         </div>
       </motion.div>
     </section>

@@ -26,6 +26,8 @@ type Row = {
   label: string;
   icon: typeof Upload;
   heading: string;
+  /** One sentence under the heading. Only step one has one. */
+  lead?: string;
   bullets: string[];
   Visual: () => React.ReactElement;
 };
@@ -35,9 +37,9 @@ const rows: Row[] = [
     label: "Step 1 · Upload",
     icon: Upload,
     heading: "Upload your winning ad",
+    lead: "Simply drag and drop your best-performing video ad to get started.",
     bullets: [
-      "Drag and drop your best-performing ad",
-      "Supports MP4 & MOV up to 1.5 minutes",
+      "Supported formats: MP4 & MOV (up to 90 seconds)",
       "No editing skills required",
     ],
     Visual: UploadVisual,
@@ -47,31 +49,31 @@ const rows: Row[] = [
     icon: Eye,
     heading: "AdMultiply AI identifies your winning formula",
     bullets: [
-      "Learns what actually makes your ad perform",
-      "Pinpoints your strongest hooks & moments",
-      "Understands pacing, structure and messaging",
+      "Analyses the creative elements behind your best-performing ad",
+      "Identifies your strongest hooks and key moments",
+      "Understands your ad's pacing, structure and messaging",
     ],
     Visual: AnalyzeVisual,
   },
   {
     label: "Step 3 · Generate",
     icon: Layers,
-    heading: "Generate 3 creative variations",
+    heading: "Generate 3 creative micro variations",
     bullets: [
-      "Three high-converting micro variations in seconds",
-      "Fresh hooks and angles from your winning formula",
-      "Hi-res and ready to test",
+      "Turn one winning ad into three fresh, ready-to-test creative variations in seconds",
+      "Discover new hooks and angles inspired by your winning formula",
+      "High-resolution, ready-to-launch creatives",
     ],
     Visual: GenerateVisual,
   },
   {
     label: "Step 4 · Launch",
     icon: Rocket,
-    heading: "Download & launch",
+    heading: "Download, Launch and Multiply Your Results",
     bullets: [
-      "Export optimized for TikTok, Reels & Shorts",
-      "Extend the lifespan of winning campaigns",
-      "Launch new variations without skipping a beat",
+      "Export high-resolution, platform-ready creatives for TikTok, Instagram Reels & YouTube Shorts",
+      "Keep winning campaigns fresh and extend the lifespan of your best-performing ads",
+      "Launch new variations faster, reduce creative fatigue and keep your campaigns moving",
     ],
     Visual: LaunchVisual,
   },
@@ -152,6 +154,12 @@ function FeatureRow({ row, reverse }: { row: Row; reverse: boolean }) {
         <h3 className="mt-4 display-sm">
           {row.heading}
         </h3>
+
+        {row.lead && (
+          <p className="mt-3 text-sm leading-relaxed text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)] sm:text-base">
+            {row.lead}
+          </p>
+        )}
 
         <ul className="mt-5 flex flex-col gap-3">
           {row.bullets.map((b) => (
