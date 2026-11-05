@@ -17,11 +17,24 @@ export function LogoMark({ size = 28, className = "" }: LogoMarkProps) {
   );
 }
 
-export function Logo({ className = "" }: { className?: string }) {
+/* The wordmark scales with the mark, or the text stays put while the mark
+   grows around it and the lockup stops reading as one thing. */
+export function Logo({
+  size = 28,
+  className = "",
+}: {
+  size?: number;
+  className?: string;
+}) {
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <LogoMark size={28} />
-      <span className="text-base font-bold tracking-tight">AdMultiply</span>
+      <LogoMark size={size} />
+      <span
+        className="font-bold tracking-tight"
+        style={{ fontSize: Math.round(size * 0.57) }}
+      >
+        AdMultiply
+      </span>
     </div>
   );
 }

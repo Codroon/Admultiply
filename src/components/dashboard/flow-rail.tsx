@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
+import { LogoMark } from "@/components/logo";
 import { useDashboard } from "./dashboard-provider";
 
 /* Where you are, right now.
@@ -34,9 +35,14 @@ export function FlowRail() {
         const complete = s.n < current;
         const active = s.n === current;
         return (
-          <li key={s.n} className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+          /* shrink-0, not min-w-0. Adding the mark to each chip left the
+             labels no room and they truncated to "U...", "W...", "Dow..." on
+             a phone. The rail already sits in a scroller, so letting the
+             chips keep their width and swiping to step three beats three
+             steps nobody can read. */
+          <li key={s.n} className="flex shrink-0 items-center gap-1 sm:gap-2">
             <div
-              className={`flex min-w-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-2.5 transition-colors sm:pr-3.5 ${
+              className={`flex items-center gap-1 rounded-full py-1.5 pl-1 pr-2 transition-colors sm:pl-1.5 sm:gap-2 sm:pr-3.5 ${
                 active
                   ? "bg-brand-500/12 ring-1 ring-brand-500/25"
                   : complete
@@ -64,7 +70,7 @@ export function FlowRail() {
                 )}
               </span>
               <span
-                className={`truncate text-[11px] font-semibold sm:text-xs ${
+                className={`whitespace-nowrap text-[11px] font-semibold sm:text-xs ${
                   active
                     ? "text-brand-600 dark:text-brand-400"
                     : complete
@@ -75,11 +81,29 @@ export function FlowRail() {
                 <span className="sm:hidden">{s.short}</span>
                 <span className="hidden sm:inline">{s.label}</span>
               </span>
+
+              {/* The mark closes every step, at the client's request. Dimmed
+                  on the steps that are not the live one so three of them in a
+                  row read as a signature rather than three buttons. */}
+              {/* Two sizes rather than one, because every pixel in this chip
+                  is spent on the label at phone width. */}
+              <LogoMark
+                size={11}
+                className={`shrink-0 transition-opacity sm:hidden ${
+                  active ? "opacity-100" : "opacity-45"
+                }`}
+              />
+              <LogoMark
+                size={13}
+                className={`hidden shrink-0 transition-opacity sm:block ${
+                  active ? "opacity-100" : "opacity-45"
+                }`}
+              />
             </div>
 
             {i < STEPS.length - 1 && (
               <span
-                className={`h-px w-2 shrink-0 sm:w-4 ${
+                className={`h-px w-1 shrink-0 sm:w-4 ${
                   complete ? "bg-emerald-500/40" : "bg-black/10 dark:bg-white/15"
                 }`}
               />

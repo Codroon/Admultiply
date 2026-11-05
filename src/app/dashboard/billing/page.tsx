@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { PLANS, TOKEN_RULE, getPlan, upgradeCta, type Plan } from "@/lib/plans";
+import { PricingFaq } from "@/components/dashboard/pricing-faq";
 import { useDashboard } from "@/components/dashboard/dashboard-provider";
 
 export default function BillingPage() {
@@ -95,6 +96,9 @@ export default function BillingPage() {
           with the backend.
         </p>
       </div>
+
+      {/* Under the grid, where the questions actually occur to someone. */}
+      <PricingFaq />
     </div>
   );
 

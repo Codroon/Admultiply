@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Maximize2, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
-import { LogoMark } from "@/components/logo";
 
 /* The player.
 
@@ -152,16 +151,56 @@ function Surface({
         className={`h-full w-full cursor-pointer ${big ? "object-contain" : "object-cover"}`}
       />
 
+      {/* The watermark.
+
+          It used to be a small tilted lockup off to one side, which a free
+          user could crop out in seconds and which barely read at library
+          size. The client asked for the stock-photo treatment instead: dead
+          centre, large, straight, across the middle of the frame.
+
+          Both halves are sized as a percentage of the player rather than in
+          pixels, so the same markup is right at 140px in the library and at
+          420px in the lightbox. That is also why the wordmark is SVG text:
+          font-size does not take a percentage, a viewBox does the scaling
+          for free. */}
       {watermarked && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="flex rotate-[-24deg] items-center gap-1.5 opacity-40">
-            <LogoMark size={big ? 28 : 16} />
-            <span
-              className={`font-bold tracking-wide text-white drop-shadow ${big ? "text-xl" : "text-xs"}`}
+        <div
+          aria-hidden
+          /* A white watermark vanishes on a bright frame, and plenty of ads
+             open on a white wall or a blown out sky. The dark drop shadow is
+             what keeps it readable on those without having to turn the
+             opacity up until it ruins the picture. */
+          className="pointer-events-none absolute inset-0 opacity-50 drop-shadow-[0_2px_10px_rgba(0,0,0,0.75)]"
+        >
+          {/* The wordmark alone, no mark above it. The mark was tried here
+              and could not be made to read: it is a thin angular glyph drawn
+              to sit at 28px next to this word, and flattened to white at
+              watermark opacity it blurs into whatever is behind it. The
+              centre play button, which is opaque and sits in exactly the
+              same spot, finished the job. A logo nobody can see is worse
+              than no logo. */}
+          {/* Just below the midline rather than on it. Dead centre is where
+              the play button sits, and it is opaque, so a centred wordmark
+              gets its middle letters punched out. Everything is a percentage
+              so this holds at library size and in the lightbox alike. */}
+          <svg
+            viewBox="0 0 100 13"
+            className="absolute left-1/2 top-[58%] w-[76%] max-w-[300px] -translate-x-1/2 -translate-y-1/2"
+          >
+            <text
+              /* Letter spacing adds a gap after the final letter too, so a
+                 centred string sits half a gap left of true centre. */
+              x="50.9"
+              y="10"
+              textAnchor="middle"
+              fill="#fff"
+              fontSize="11"
+              fontWeight="800"
+              letterSpacing="1.8"
             >
-              AdMultiply
-            </span>
-          </div>
+              ADMULTIPLY
+            </text>
+          </svg>
         </div>
       )}
 

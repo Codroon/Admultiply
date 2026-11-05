@@ -9,7 +9,7 @@ import { UploadBay } from "./upload-bay";
 import { UploadConfirm } from "./upload-confirm";
 
 const ACCEPTED = ["video/mp4", "video/quicktime", "video/x-msvideo"];
-const MAX_SECONDS = 95; // spec: 1 min 30 s (+ small grace)
+const MAX_SECONDS = 95; // spec: 90 seconds (+ small grace)
 
 type Picked = {
   file: File;
@@ -67,7 +67,7 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
       if (duration > MAX_SECONDS) {
         URL.revokeObjectURL(url);
         setError(
-          `This video is ${fmtDuration(duration)}. The maximum is 1:30, so trim it and try again.`
+          `This video is ${fmtDuration(duration)}. The maximum is 90 seconds, so trim it and try again.`
         );
         return;
       }
@@ -165,7 +165,7 @@ export function UploadHero({ compact = false }: { compact?: boolean }) {
               {dragging ? "Drop it, we'll take it from here" : "Multiply another ad"}
             </span>
             <span className="mt-0.5 block text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-              MP4, MOV or AVI · up to 1 min 30 s
+              Video formats supported: MP4, MOV or AVI
             </span>
           </span>
           <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-brand-500/30 sm:inline-flex">

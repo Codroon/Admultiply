@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Check, Lock } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { firstHdPlan } from "@/lib/plans";
 import { useDashboard } from "./dashboard-provider";
 
 /* Contextual paywall, opens only on intent (HD download click on a free
@@ -11,6 +12,7 @@ import { useDashboard } from "./dashboard-provider";
    assets un-gate on upgrade with no re-render and no token cost. */
 export function UpgradeModal() {
   const { upgradeOpen, closeUpgrade } = useDashboard();
+  const entry = firstHdPlan();
 
   return (
     <Modal open={upgradeOpen} onClose={closeUpgrade}>
@@ -49,7 +51,9 @@ export function UpgradeModal() {
         <div className="mt-6 flex w-full flex-col gap-2">
           <Link href="/dashboard/billing" onClick={closeUpgrade} className="w-full">
             <Button size="lg" className="w-full">
-              See plans, from $9/mo
+              {entry.price === 0
+                ? `See plans, ${entry.name} is free`
+                : `See plans, from $${entry.price}/mo`}
             </Button>
           </Link>
           <Button variant="ghost" size="md" onClick={closeUpgrade}>

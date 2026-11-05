@@ -2,7 +2,7 @@
 
 import { useDashboard } from "@/components/dashboard/dashboard-provider";
 import { HeroBand, StatStrip } from "@/components/dashboard/hero-band";
-import { Showcase } from "@/components/dashboard/showcase";
+import { BrandStrip } from "@/components/dashboard/brand-strip";
 import { ProcessingCard } from "@/components/dashboard/processing-card";
 import { ResultsSection } from "@/components/dashboard/results-section";
 import { UploadHero } from "@/components/dashboard/upload-hero";
@@ -20,10 +20,10 @@ export default function DashboardHome() {
 
       {isZeroState ? (
         <>
-          {/* The one thing you came here to do, before the examples of other
-              people having done it. */}
+          {/* The one thing you came here to do, before the proof that other
+              people did it too. */}
           <UploadHero />
-          <Showcase />
+          <BrandStrip />
         </>
       ) : (
         <>

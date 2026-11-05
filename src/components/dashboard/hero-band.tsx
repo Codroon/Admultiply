@@ -62,7 +62,7 @@ export function HeroBand() {
       >
         {started
           ? "Your winning creatives are multiplying."
-          : "Turn one winning ad into three vertical micro-ads."}
+          : "Turn one winning ad into three repurposed micro ads"}
       </motion.p>
 
       <motion.div

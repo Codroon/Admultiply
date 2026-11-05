@@ -93,11 +93,11 @@ function ShellInner({ children }: { children: ReactNode }) {
         <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between px-2"}`}>
           {collapsed ? (
             <Link href="/dashboard" aria-label="AdMultiply home">
-              <LogoMark size={30} />
+              <LogoMark size={36} />
             </Link>
           ) : (
             <Link href="/dashboard">
-              <Logo />
+              <Logo size={36} />
             </Link>
           )}
           {!collapsed && (
@@ -171,8 +171,8 @@ function ShellInner({ children }: { children: ReactNode }) {
 
       {/* Mobile top bar */}
       <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between border-b border-[var(--color-border-subtle)] bg-white/90 px-4 py-3 backdrop-blur-xl dark:border-[var(--color-border-dark-subtle)] dark:bg-[var(--color-surface-dark-muted)]/90 lg:hidden">
-        <Link href="/dashboard">
-          <LogoMark size={30} />
+        <Link href="/dashboard" aria-label="AdMultiply home">
+          <LogoMark size={36} />
         </Link>
         <div className="flex items-center gap-2">
           <TokenChip tokens={tokens} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -10,21 +10,32 @@ import { authCallbackUrl } from "@/lib/supabase/env";
 
 /* Signing in and signing up, which are the same form with different words.
  *
- * The email link is the default, on purpose. A password is a thing people
- * invent at the door, forget, and then need a reset flow to recover, and the
- * whole exchange buys us nothing: the email still has to be verified either
- * way. So the quickest honest route in is the one offered first, and anyone
- * who would rather keep a password is one tap away.
+ * A emailed code is the default, on purpose, and it is a code rather than a
+ * link because of where a link leaves you. Tapping a link in a mail app opens
+ * the sign in inside that app's browser, which is not the browser you started
+ * in, so you end up back in the first one still logged out, pressing "back"
+ * and wondering what happened. A code never leaves the tab you are already in.
  *
- * Google sits above both for people who never wanted either.
+ * The same mail still carries a link, so either route works. Typing the code
+ * is simply the one the screen asks for.
  *
- * The Google button only appears when the provider is actually switched on in
- * Supabase. A button that reliably returns an error is worse than no button,
- * and the server knows the answer before the page is sent.
+ * Anyone who would rather keep a password is one tap away, and Google sits
+ * above both for people who never wanted either. The Google button only
+ * appears when the provider is actually switched on in Supabase: a button
+ * that reliably returns an error is worse than no button, and the server
+ * knows the answer before the page is sent.
  */
 
 type Mode = "login" | "signup";
-type Method = "password" | "link";
+type Method = "password" | "code";
+/* "form" is the email step, "code" is the six digits, "confirm" is the
+   password signup path, which still ends on a link in the inbox. */
+type Stage = "form" | "code" | "confirm";
+
+/* Supabase issues six digits. The client asked for four or five; four or five
+   is not on offer, and six is what her own example screenshot showed. */
+const CODE_LENGTH = 6;
+const RESEND_SECONDS = 30;
 
 export function AuthForm({
   mode,
@@ -39,16 +50,41 @@ export function AuthForm({
   const params = useSearchParams();
   const next = params.get("next") ?? "/dashboard";
 
-  const [method, setMethod] = useState<Method>("link");
+  const [method, setMethod] = useState<Method>("code");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState<"" | "email" | "google">("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState<"" | "email" | "google" | "code">("");
   // A link arriving from the callback route carries its own failure.
   const [error, setError] = useState(params.get("error") ?? "");
-  const [sent, setSent] = useState<"" | "link" | "confirm">("");
+  const [stage, setStage] = useState<Stage>("form");
 
   const isSignup = mode === "signup";
+
+  /* Asks Supabase to mail a code. Shared by the first send and by "resend",
+     which is why it is not folded into the submit handler. */
+  const sendCode = async () => {
+    const supabase = supabaseBrowser();
+    if (!supabase) {
+      setError("Accounts are not configured on this environment yet.");
+      return false;
+    }
+    const { error: err } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        // The same mail still carries a link. Someone who taps it instead of
+        // typing the code should still land signed in.
+        emailRedirectTo: authCallbackUrl(window.location.origin, next),
+        // Signing in must not quietly create an account for a mistyped
+        // address; signing up is exactly when it should.
+        shouldCreateUser: isSignup,
+        data: isSignup && name ? { full_name: name } : undefined,
+      },
+    });
+    if (err) throw err;
+    return true;
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,19 +97,10 @@ export function AuthForm({
     setBusy("email");
 
     try {
-      if (method === "link") {
-        const { error: err } = await supabase.auth.signInWithOtp({
-          email,
-          options: {
-            emailRedirectTo: authCallbackUrl(window.location.origin, next),
-            // Signing in must not quietly create an account for a mistyped
-            // address; signing up is exactly when it should.
-            shouldCreateUser: isSignup,
-            data: isSignup && name ? { full_name: name } : undefined,
-          },
-        });
-        if (err) throw err;
-        setSent("link");
+      if (method === "code") {
+        await sendCode();
+        setCode("");
+        setStage("code");
         return;
       }
 
@@ -90,7 +117,7 @@ export function AuthForm({
         // With email confirmation on, Supabase returns a user but no session.
         // Saying "check your email" is the honest reading of that.
         if (!data.session) {
-          setSent("confirm");
+          setStage("confirm");
           return;
         }
       } else {
@@ -126,13 +153,87 @@ export function AuthForm({
     // On success the browser leaves for Google, so nothing to do here.
   };
 
-  if (sent) {
+  /* Trading the six digits for a session.
+   *
+   * Two types are tried because Supabase issues the code under different ones
+   * depending on who is asking. An address it already knows gets a magic link
+   * token, which verifies as "email". A brand new address gets a signup
+   * confirmation token, which does not. Rather than guess which happened, ask
+   * for the common case and fall back once. */
+  const verify = async (value: string) => {
+    const supabase = supabaseBrowser();
+    if (!supabase) return;
+    setError("");
+    setBusy("code");
+
+    try {
+      const first = await supabase.auth.verifyOtp({
+        email,
+        token: value,
+        type: "email",
+      });
+
+      let failure = first.error;
+      if (failure && isSignup) {
+        const retry = await supabase.auth.verifyOtp({
+          email,
+          token: value,
+          type: "signup",
+        });
+        failure = retry.error;
+      }
+      if (failure) throw failure;
+
+      router.push(next);
+      router.refresh(); // let the server re-read the session it just gained
+    } catch (err) {
+      setError(friendly(err));
+      setCode("");
+      setBusy("");
+    }
+  };
+
+  if (stage === "confirm") {
     return (
-      <Sent
+      <Confirm
         email={email}
-        kind={sent}
         onBack={() => {
-          setSent("");
+          setStage("form");
+          setError("");
+        }}
+      />
+    );
+  }
+
+  if (stage === "code") {
+    return (
+      <CodeStep
+        email={email}
+        code={code}
+        busy={busy === "code"}
+        error={error}
+        onChange={(value) => {
+          setCode(value);
+          setError("");
+          // Six digits is the whole form. Making someone then reach for a
+          // button is a step that exists only because the code said so.
+          if (value.length === CODE_LENGTH) void verify(value);
+        }}
+        onSubmit={() => {
+          if (code.length === CODE_LENGTH) void verify(code);
+        }}
+        onResend={async () => {
+          setError("");
+          try {
+            await sendCode();
+            setCode("");
+          } catch (err) {
+            setError(friendly(err));
+          }
+        }}
+        onBack={() => {
+          setStage("form");
+          setCode("");
           setError("");
         }}
       />
@@ -237,11 +338,11 @@ export function AuthForm({
         >
           {busy === "email" ? (
             <Loader2 size={16} className="animate-spin" />
-          ) : method === "link" ? (
+          ) : method === "code" ? (
             <Mail size={15} />
           ) : null}
-          {method === "link"
-            ? "Email me a link"
+          {method === "code"
+            ? "Email me a code"
             : isSignup
               ? "Create my account"
               : "Log in"}
@@ -251,13 +352,13 @@ export function AuthForm({
         <button
           type="button"
           onClick={() => {
-            setMethod(method === "password" ? "link" : "password");
+            setMethod(method === "password" ? "code" : "password");
             setError("");
           }}
           className="mt-3 w-full text-center text-xs font-medium text-[var(--color-ink-muted)] underline underline-offset-2 transition-colors hover:text-[var(--color-ink)] dark:text-[var(--color-ink-dark-muted)] dark:hover:text-white"
         >
           {method === "password"
-            ? "Email me a link instead, no password needed"
+            ? "Email me a code instead, no password needed"
             : "Use a password instead"}
         </button>
       </form>
@@ -275,18 +376,139 @@ export function AuthForm({
   );
 }
 
-/* What we show once an email is on its way. The address is repeated back
-   because a typo here is otherwise invisible: the mail simply never arrives
-   and the person blames us. */
-function Sent({
+/* The six digit step.
+ *
+ * One input rather than six boxes. Six boxes are a nicer picture and a worse
+ * form: paste lands in the first one, backspace behaves differently at every
+ * boundary, and the browser's own code autofill, which is the fastest way
+ * through this screen on a phone, targets a single field.
+ *
+ * The address is repeated back because a typo here is otherwise invisible,
+ * the mail simply never arrives and the person blames us. */
+function CodeStep({
   email,
-  kind,
+  code,
+  busy,
+  error,
+  onChange,
+  onSubmit,
+  onResend,
   onBack,
 }: {
   email: string;
-  kind: "link" | "confirm";
+  code: string;
+  busy: boolean;
+  error: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onResend: () => Promise<void>;
   onBack: () => void;
 }) {
+  const [left, setLeft] = useState(RESEND_SECONDS);
+
+  // One interval for the life of the screen. It counts to zero and sits
+  // there, which is cheaper than tearing one down and building another
+  // every second.
+  useEffect(() => {
+    const id = setInterval(() => {
+      setLeft((n) => (n <= 0 ? 0 : n - 1));
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const resend = async () => {
+    await onResend();
+    setLeft(RESEND_SECONDS);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="flex flex-col"
+    >
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-500">
+        <Mail size={22} />
+      </span>
+      <h1 className="display-xs mt-5">Enter your code</h1>
+      <p className="mt-2 text-sm leading-relaxed text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
+        We sent a {CODE_LENGTH} digit code to{" "}
+        <span className="font-semibold text-[var(--color-ink)] dark:text-white">
+          {email}
+        </span>
+        . It expires in about an hour.
+      </p>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit();
+        }}
+        className="mt-6"
+      >
+        <label htmlFor="code" className="sr-only">
+          {CODE_LENGTH} digit code
+        </label>
+        <input
+          id="code"
+          value={code}
+          onChange={(e) =>
+            onChange(e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH))
+          }
+          disabled={busy}
+          autoFocus
+          inputMode="numeric"
+          pattern="[0-9]*"
+          /* The hint that lets iOS and Android offer the code straight from
+             the notification, which skips the inbox entirely. */
+          autoComplete="one-time-code"
+          placeholder={"0".repeat(CODE_LENGTH)}
+          className="w-full rounded-xl border border-[var(--color-border-subtle)] bg-transparent px-4 py-3.5 text-center font-mono text-2xl font-bold tracking-[0.4em] indent-[0.4em] transition-colors placeholder:text-[var(--color-ink-muted)]/35 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:opacity-60 dark:border-white/12"
+        />
+
+        {error && <Notice tone="error">{error}</Notice>}
+
+        <button
+          type="submit"
+          disabled={busy || code.length < CODE_LENGTH}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-6 py-3.5 text-sm font-bold text-white shadow-[0_8px_24px_-10px_rgba(249,115,22,0.8)] transition-colors hover:bg-brand-600 disabled:opacity-60"
+        >
+          {busy ? <Loader2 size={16} className="animate-spin" /> : null}
+          {busy ? "Checking" : "Continue"}
+          {!busy && <ArrowRight size={15} />}
+        </button>
+      </form>
+
+      <p className="mt-5 text-xs leading-relaxed text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
+        The same email also has a link in it, if you would rather tap that.
+        Nothing after a minute or two? Check your spam folder.
+      </p>
+
+      <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <button
+          type="button"
+          onClick={() => void resend()}
+          disabled={left > 0 || busy}
+          className="text-sm font-semibold text-brand-600 hover:underline disabled:cursor-not-allowed disabled:text-[var(--color-ink-muted)] disabled:no-underline dark:text-brand-400 dark:disabled:text-[var(--color-ink-dark-muted)]"
+        >
+          {left > 0 ? `Resend in ${left}s` : "Resend code"}
+        </button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-sm font-medium text-[var(--color-ink-muted)] underline underline-offset-2 transition-colors hover:text-[var(--color-ink)] dark:text-[var(--color-ink-dark-muted)] dark:hover:text-white"
+        >
+          Use a different email
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+/* The password signup path still ends in the inbox: Supabase confirms a new
+   password account with a link, not a code. */
+function Confirm({ email, onBack }: { email: string; onBack: () => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -299,13 +521,11 @@ function Sent({
       </span>
       <h1 className="display-xs mt-5">Check your email</h1>
       <p className="mt-2 text-sm leading-relaxed text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-        {kind === "link"
-          ? "We sent a one time link to "
-          : "We sent a confirmation link to "}
+        We sent a confirmation link to{" "}
         <span className="font-semibold text-[var(--color-ink)] dark:text-white">
           {email}
         </span>
-        . Open it on this device and you will be signed straight in.
+        . Open it and you will be signed straight in.
       </p>
       <p className="mt-4 text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
         Nothing after a minute or two? Check spam, or go back and try a
@@ -383,6 +603,10 @@ function friendly(err: unknown): string {
     return "Please open the confirmation link we emailed you first.";
   if (m.includes("password should be"))
     return "Please use a password of at least 8 characters.";
+  if (m.includes("token has expired") || m.includes("otp_expired"))
+    return "That code has expired. Send yourself a new one.";
+  if (m.includes("invalid") && (m.includes("token") || m.includes("otp")))
+    return "That code is not right. Check the email and try again.";
   if (m.includes("rate limit") || m.includes("too many"))
     return "Too many attempts. Please wait a minute and try again.";
   if (m.includes("signups not allowed"))

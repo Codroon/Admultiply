@@ -125,5 +125,10 @@ export const upgradeCta = (id: PlanId): string | null => {
   return next ? `Upgrade to ${next.name}` : null;
 };
 
+/* The cheapest tier that exports without a watermark. Everything that sells
+   watermark removal reads it from here, so the pitch cannot drift from the
+   price list the way a hardcoded "from $9/mo" did. */
+export const firstHdPlan = (): Plan => PLANS.find((p) => p.hd) ?? PLANS[0];
+
 /* 1 token = 1 upload = 3 variations. Downloads are gated by tier, never by tokens. */
 export const TOKEN_RULE = "1 token = 1 video upload → 3 variations";

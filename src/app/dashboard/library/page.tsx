@@ -48,7 +48,7 @@ export default function LibraryPage() {
         <h1 className="display-xs">My Library</h1>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
           {jobs.length === 0
-            ? "Every upload with its three cuts, kept here for download."
+            ? "Keep all of your repurposed ads in one place, re-download when you need"
             : `${jobs.length} upload${jobs.length === 1 ? "" : "s"}, ${ready * 3} cut${ready * 3 === 1 ? "" : "s"} ready to download.`}
         </p>
       </div>
@@ -58,11 +58,9 @@ export default function LibraryPage() {
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-500">
             <Layers size={24} />
           </span>
+          {/* No sub-text. The line under the page title already says this,
+              and saying it twice on one screen reads as padding. */}
           <h2 className="mt-4 text-base font-bold">No videos in your library yet</h2>
-          <p className="mt-1.5 max-w-sm text-sm text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-            Upload a winning ad and the three micro-ads we cut from it are kept
-            here, ready to download whenever you need them.
-          </p>
           <Link href="/dashboard" className="mt-5">
             <Button size="lg">
               <UploadCloud size={15} />

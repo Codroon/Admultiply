@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
   Download,
+  Droplet,
   Loader2,
   Lock,
   Play,
@@ -13,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { VideoPlayer } from "@/components/ui/video-player";
+import { firstHdPlan } from "@/lib/plans";
 import {
   MAX_REFINES,
   REFINE_INTENTS,
@@ -34,7 +36,7 @@ export function ResultsSection({ job, title }: { job: Job; title?: string }) {
 }
 
 function ResultsInner({ job, title }: { job: Job; title?: string }) {
-  const { hd, download, markPreviewPlayed } = useDashboard();
+  const { hd, download, markPreviewPlayed, openUpgrade } = useDashboard();
   const [selected, setSelected] = useState(0);
 
   const active = job.variations[Math.min(selected, job.variations.length - 1)];
@@ -117,6 +119,8 @@ function ResultsInner({ job, title }: { job: Job; title?: string }) {
               </span>
             )}
           </div>
+
+          {!hd && <WatermarkPrompt onUpgrade={openUpgrade} />}
 
           <RefinePanel job={job} variation={active} />
         </div>
@@ -210,6 +214,36 @@ function ResultsInner({ job, title }: { job: Job; title?: string }) {
 }
 
 /* ------------------------------------------------------------------------ */
+
+/* The watermark is the most visible limit of the free tier, and nothing on
+   this screen said how to be rid of it. The client asked for a prompt, and
+   it names the tier rather than saying "upgrade", because the tier that
+   removes it is itself free and that is a far easier sentence to say yes to
+   than an upgrade. */
+function WatermarkPrompt({ onUpgrade }: { onUpgrade: () => void }) {
+  const entry = firstHdPlan();
+
+  return (
+    <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl bg-brand-500/[0.07] p-3.5 ring-1 ring-brand-500/20">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-500/15 text-brand-500">
+        <Droplet size={15} />
+      </span>
+      <p className="min-w-[12rem] flex-1 text-xs leading-relaxed">
+        <span className="font-bold">
+          These downloads carry the AdMultiply watermark.
+        </span>{" "}
+        <span className="text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
+          {entry.price === 0
+            ? `${entry.name} removes it, and it costs nothing.`
+            : `${entry.name} removes it, from $${entry.price} a month.`}
+        </span>
+      </p>
+      <Button size="sm" className="shrink-0" onClick={onUpgrade}>
+        Remove watermark
+      </Button>
+    </div>
+  );
+}
 
 function VersionPicker({ job, variation }: { job: Job; variation: Variation }) {
   const { setVersion } = useDashboard();

@@ -63,7 +63,7 @@ export function UploadBay({
       <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:gap-6">
         {/* What they bring */}
         <div className="mx-auto w-[72%] sm:mx-0 sm:w-[40%]">
-          <SlotLabel>Your winning ad</SlotLabel>
+          <SlotLabel>Upload Your Ad</SlotLabel>
           <div
             className={`relative flex aspect-video items-center justify-center rounded-xl border border-dashed transition-colors ${
               dragging
@@ -81,7 +81,7 @@ export function UploadBay({
               <Plus size={20} strokeWidth={2.5} />
             </span>
             <span className="absolute bottom-2 left-0 right-0 text-center text-[10px] font-medium text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-              up to 1 min 30 s
+              Up to 90 seconds
             </span>
           </div>
         </div>
@@ -99,7 +99,7 @@ export function UploadBay({
 
         {/* What they get */}
         <div className="min-w-0 flex-1">
-          <SlotLabel>Three micro-ads, three angles</SlotLabel>
+          <SlotLabel>Three refreshed micro ads</SlotLabel>
           <div className="mx-auto grid max-w-[270px] grid-cols-3 gap-2 sm:max-w-none">
             {[0, 1, 2].map((i) => (
               <motion.div
@@ -149,7 +149,7 @@ export function UploadBay({
         </span>
 
         <span className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-          <span>or drop it anywhere in this panel · MP4, MOV or AVI</span>
+          <span>Video formats supported: MP4, MOV or AVI</span>
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand-500/10 px-3 py-1.5 text-[11px] font-bold text-brand-600 ring-1 ring-brand-500/20 dark:text-brand-400">
             <Coins size={11} />1 token = 3 variations
           </span>
