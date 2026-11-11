@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Nav } from "./nav";
 import { HeroMockup } from "./hero-mockup";
 
@@ -93,7 +93,7 @@ export function Hero() {
         >
           <a
             href="/signup"
-            className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-500 px-7 py-3.5 text-sm font-semibold text-white shadow-[0_8px_28px_-10px_rgba(249,115,22,0.75)] transition-all hover:bg-brand-600 dark:shadow-[0_8px_32px_-8px_rgba(249,115,22,0.8)] dark:hover:bg-brand-400 sm:w-auto"
+            className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand-500 px-7 text-[15px] font-semibold text-white shadow-[0_8px_28px_-10px_rgba(249,115,22,0.75)] transition-all hover:bg-brand-600 dark:shadow-[0_8px_32px_-8px_rgba(249,115,22,0.8)] dark:hover:bg-brand-400 sm:w-auto"
           >
             Start for Free
             <ArrowRight
@@ -101,16 +101,15 @@ export function Hero() {
               className="transition-transform group-hover:translate-x-0.5"
             />
           </a>
+          {/* A bordered surface pill rather than a grey fill, and no play
+              bubble. The two buttons now differ by weight alone, one filled
+              and one outlined at the same height and the same type, which is
+              what makes a pair read as a pair. The bubble was the one thing
+              breaking that symmetry. */}
           <a
             href="#how-it-works"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-black/[0.04] px-7 py-3.5 text-sm font-semibold text-[var(--color-ink)] ring-1 ring-black/[0.08] backdrop-blur transition-colors hover:bg-black/[0.07] dark:bg-white/[0.06] dark:text-white dark:ring-white/12 dark:hover:bg-white/[0.12] sm:w-auto"
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--color-surface)]/70 px-6 text-[15px] font-semibold text-[var(--color-ink)] ring-1 ring-black/[0.15] backdrop-blur transition-colors hover:bg-[var(--color-surface)] dark:bg-white/[0.06] dark:text-white dark:ring-white/[0.15] dark:hover:bg-white/[0.12] sm:w-auto"
           >
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 dark:bg-white/10">
-              <Play
-                size={9}
-                className="ml-px fill-[var(--color-ink)] dark:fill-white"
-              />
-            </span>
             See How It Works
           </a>
         </motion.div>

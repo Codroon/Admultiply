@@ -11,14 +11,20 @@ const links = [
   { href: "#faq", label: "FAQ" },
 ];
 
-/* The bar is transparent over the hero at the top and fades into a blurred
-   themed bar once you scroll.
+/* A floating island, not a bar across the top.
 
-   There used to be a light-on-dark branch here, because the hero stage was
-   near-black whatever the theme was, so the links had to be white over it even
-   in light mode. The hero follows the theme now, which means the transparent
-   state and the scrolled state sit on the same colour as each other and one
-   set of themed link colours covers both. The branch is gone with it. */
+   This was a full width bar: transparent over the hero, fading to a blurred
+   strip once you scrolled. The island is the shape the client asked for, and
+   the reason it works better here is that it stops competing with the hero.
+   A bar runs edge to edge and draws a line under itself, which cuts the page
+   in two at exactly the point the headline is trying to own. A pill sits on
+   top of the page instead of slicing it, so the hero reads as one thing with
+   the navigation floating over it.
+
+   It is visible at every scroll position rather than fading in, because an
+   island that appears from nothing is a jump rather than a transition. What
+   changes on scroll is the shadow: shallow at the top where there is nothing
+   underneath it, deeper once content is passing beneath. */
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
 
@@ -34,35 +40,43 @@ export function Nav() {
       initial={{ y: -24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="fixed inset-x-0 top-0 z-50"
+      className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4"
     >
-      {/* At the top: transparent, blends into the hero.
-          On scroll: a soft blurred bar fades in. */}
+      {/* pr is tighter than pl on purpose: the right end finishes on a filled
+          pill, which carries its own visual padding, so matching the left
+          would leave the button marooned in the middle of a gap. */}
       <div
-        className={`absolute inset-0 transition-all duration-300 ${
+        className={`mx-auto flex h-14 max-w-[1120px] items-center justify-between rounded-full border border-black/[0.06] bg-[var(--color-surface)]/85 pl-4 pr-2 backdrop-blur-xl transition-shadow duration-300 dark:border-white/[0.08] dark:bg-[var(--color-surface-dark-muted)]/85 sm:pl-5 ${
           scrolled
-            ? "border-b border-black/5 bg-[var(--color-surface)]/70 backdrop-blur-xl dark:border-white/5 dark:bg-[var(--color-surface-dark)]/60"
-            : "border-b border-transparent bg-transparent"
+            ? "shadow-[0_10px_30px_-12px_rgba(21,18,16,0.3)] dark:shadow-[0_10px_30px_-12px_rgba(0,0,0,0.9)]"
+            : "shadow-[0_6px_20px_-14px_rgba(21,18,16,0.22)] dark:shadow-[0_6px_20px_-14px_rgba(0,0,0,0.7)]"
         }`}
-      />
-
-      <div className="relative mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-12">
-        <Logo />
+      >
+        <Logo size={28} />
 
         <nav className="hidden items-center gap-1 md:flex">
           {links.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="rounded-full px-4 py-1.5 text-sm font-medium text-[var(--color-ink-muted)] transition-colors hover:text-[var(--color-ink)] dark:text-[var(--color-ink-dark-muted)] dark:hover:text-white"
+              className="rounded-full px-3.5 py-1.5 text-sm font-medium text-[var(--color-ink-muted)] transition-colors hover:text-[var(--color-ink)] dark:text-[var(--color-ink-dark-muted)] dark:hover:text-white"
             >
               {link.label}
             </a>
           ))}
         </nav>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          <ThemeToggle />
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          {/* Hidden on a phone. Measured at 393px the logo and this toggle
+              met at exactly the same pixel with no gap between them, and a
+              wordmark touching a control reads as broken even when nothing
+              technically overlaps. The toggle is the one thing here a
+              visitor can lose without noticing: next-themes follows the
+              system setting, so a phone in dark mode still arrives dark.
+              Log in stays, for the reason below. */}
+          <span className="hidden sm:flex">
+            <ThemeToggle />
+          </span>
           {/* Two actions now that accounts exist. Returning customers are the
               quieter of the two: they already know where they are going, and
               the loud button belongs to the people who do not. It stays on a
@@ -76,7 +90,7 @@ export function Nav() {
           </a>
           <a
             href="/signup"
-            className="inline-flex items-center whitespace-nowrap rounded-full bg-brand-500 px-3.5 py-2 text-sm font-semibold text-white shadow-sm shadow-brand-500/30 transition-all hover:bg-brand-600 hover:shadow-md sm:px-4"
+            className="inline-flex h-10 items-center whitespace-nowrap rounded-full bg-brand-500 px-4 text-sm font-semibold text-white shadow-sm shadow-brand-500/30 transition-all hover:bg-brand-600 hover:shadow-md sm:px-5"
           >
             Get started
           </a>
