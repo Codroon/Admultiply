@@ -1,0 +1,82 @@
+<!--
+  AdMultiply auth email.
+
+  Paste into Supabase, Authentication, Email Templates, into BOTH:
+    - Magic Link      (sent to an address Supabase already knows)
+    - Confirm signup  (sent to a brand new address)
+  Both carry the same six digits, so one template covers both.
+
+  The subject line is in README.md next to this file, kept out of here so
+  this file holds exactly one substitutable variable.
+
+  Three rules this file follows, all of them because email is not the web:
+
+  1. No ConfirmationURL variable, and note it is written here without its
+     braces on purpose: Supabase substitutes variables inside HTML comments
+     too, which would put a real one time link into the source of the email
+     where a scanner could still find and spend it.
+
+     The link and the code are the same single use
+     token, and Gmail and corporate mail scanners open links to check them for
+     phishing, which spends the token before the customer can type it. That is
+     what was causing good codes to come back as expired.
+
+  2. No images. Most clients block remote images by default, so a logo is a
+     broken box more often than it is a logo. The wordmark is set in type, so
+     it always arrives.
+
+  3. Tables and inline styles only. Outlook still renders with Word's engine,
+     which has no flexbox, no grid and no stylesheet support worth the name.
+-->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fafafa;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <tr>
+    <td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:460px;background:#ffffff;border:1px solid #ececec;border-radius:16px;">
+
+        <tr>
+          <td style="padding:28px 28px 0 28px;">
+            <span style="font-size:18px;font-weight:700;letter-spacing:-0.02em;color:#0a0a0a;">Ad<span style="color:#f97316;">Multiply</span></span>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:22px 28px 0 28px;">
+            <h1 style="margin:0;font-size:21px;line-height:1.3;font-weight:700;color:#0a0a0a;">Your sign in code</h1>
+            <p style="margin:8px 0 0 0;font-size:14px;line-height:1.6;color:#525252;">Enter this code to sign in to AdMultiply.</p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:20px 28px 0 28px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;">
+              <tr>
+                <!-- text-indent cancels the trailing gap letter-spacing adds
+                     after the final digit, which otherwise sits the code a
+                     half space left of centre. -->
+                <td align="center" style="padding:18px 12px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:32px;font-weight:700;letter-spacing:10px;text-indent:10px;color:#ea580c;">{{ .Token }}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:18px 28px 26px 28px;">
+            <p style="margin:0;font-size:13px;line-height:1.6;color:#525252;">This code expires in 60 minutes and can only be used once.</p>
+            <p style="margin:10px 0 0 0;font-size:13px;line-height:1.6;color:#a3a3a3;">If you did not ask to sign in, you can ignore this email. Nobody can get into your account without the code.</p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:0 28px 26px 28px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="border-top:1px solid #ececec;padding-top:16px;font-size:12px;color:#a3a3a3;">AdMultiply &middot; admultiply.io</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
