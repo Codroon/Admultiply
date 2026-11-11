@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -37,6 +37,21 @@ type Stage = "form" | "code" | "confirm";
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 30;
 
+/* Supabase files the same six digits under different token types depending on
+   how they were asked for, and a type that does not match comes back with the
+   very same "token has expired or is invalid" as a genuinely dead code. There
+   is no way to tell from the outside which one we are holding, so try each in
+   turn. A failed attempt does not consume the token. */
+const VERIFY_TYPES = ["email", "magiclink", "signup"] as const;
+
+/* Whether a failure is worth retrying under the next type. A rate limit or a
+   dropped connection will fail identically three times over, so only a token
+   complaint earns another go. */
+function looksLikeWrongType(err: unknown): boolean {
+  const m = (err instanceof Error ? err.message : String(err ?? "")).toLowerCase();
+  return m.includes("token") || m.includes("otp") || m.includes("expired");
+}
+
 export function AuthForm({
   mode,
   googleEnabled,
@@ -62,6 +77,17 @@ export function AuthForm({
 
   const isSignup = mode === "signup";
 
+  /* Supabase hashes the token against the lowercased address, so "Eve@..." on
+     the way out and "eve@..." on the way back do not match. Normalise once and
+     use this everywhere rather than the raw field. */
+  const address = email.trim().toLowerCase();
+
+  /* Verifying twice with the same code is a way to fail while succeeding: the
+     first call spends the token and signs you in, the second finds it spent
+     and overwrites the screen with an error. A ref, not state, because two
+     calls in the same tick would both read a stale state value. */
+  const verifying = useRef(false);
+
   /* Asks Supabase to mail a code. Shared by the first send and by "resend",
      which is why it is not folded into the submit handler. */
   const sendCode = async () => {
@@ -71,7 +97,7 @@ export function AuthForm({
       return false;
     }
     const { error: err } = await supabase.auth.signInWithOtp({
-      email,
+      email: address,
       options: {
         // The same mail still carries a link. Someone who taps it instead of
         // typing the code should still land signed in.
@@ -153,43 +179,45 @@ export function AuthForm({
     // On success the browser leaves for Google, so nothing to do here.
   };
 
-  /* Trading the six digits for a session.
-   *
-   * Two types are tried because Supabase issues the code under different ones
-   * depending on who is asking. An address it already knows gets a magic link
-   * token, which verifies as "email". A brand new address gets a signup
-   * confirmation token, which does not. Rather than guess which happened, ask
-   * for the common case and fall back once. */
+  /* Trading the six digits for a session. See VERIFY_TYPES for why this is a
+     loop rather than a single call. */
   const verify = async (value: string) => {
     const supabase = supabaseBrowser();
     if (!supabase) return;
+    if (verifying.current) return;
+    verifying.current = true;
+
     setError("");
     setBusy("code");
 
     try {
-      const first = await supabase.auth.verifyOtp({
-        email,
-        token: value,
-        type: "email",
-      });
+      let failure: unknown = null;
 
-      let failure = first.error;
-      if (failure && isSignup) {
-        const retry = await supabase.auth.verifyOtp({
-          email,
+      for (const type of VERIFY_TYPES) {
+        const { error: err } = await supabase.auth.verifyOtp({
+          email: address,
           token: value,
-          type: "signup",
+          type,
         });
-        failure = retry.error;
+        if (!err) {
+          failure = null;
+          break;
+        }
+        failure = err;
+        if (!looksLikeWrongType(err)) break;
       }
+
       if (failure) throw failure;
 
       router.push(next);
       router.refresh(); // let the server re-read the session it just gained
+      // Deliberately still held: the navigation is on its way, and releasing
+      // here would let a stray re-entry fire against a spent token.
     } catch (err) {
       setError(friendly(err));
       setCode("");
       setBusy("");
+      verifying.current = false;
     }
   };
 
@@ -603,10 +631,12 @@ function friendly(err: unknown): string {
     return "Please open the confirmation link we emailed you first.";
   if (m.includes("password should be"))
     return "Please use a password of at least 8 characters.";
-  if (m.includes("token has expired") || m.includes("otp_expired"))
-    return "That code has expired. Send yourself a new one.";
-  if (m.includes("invalid") && (m.includes("token") || m.includes("otp")))
-    return "That code is not right. Check the email and try again.";
+  /* Supabase says "token has expired or is invalid" for a code that ran out,
+     one already spent, and one replaced by a newer request. Saying "expired"
+     alone sends people hunting for a clock problem they do not have. */
+  if (m.includes("token has expired") || m.includes("otp_expired") ||
+      (m.includes("invalid") && (m.includes("token") || m.includes("otp"))))
+    return "That code did not work. It may have expired, or been replaced by a newer one. Send yourself a fresh code.";
   if (m.includes("rate limit") || m.includes("too many"))
     return "Too many attempts. Please wait a minute and try again.";
   if (m.includes("signups not allowed"))
