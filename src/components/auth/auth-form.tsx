@@ -28,9 +28,9 @@ import { authCallbackUrl } from "@/lib/supabase/env";
 
 type Mode = "login" | "signup";
 type Method = "password" | "code";
-/* "form" is the email step, "code" is the six digits, "confirm" is the
-   password signup path, which still ends on a link in the inbox. */
-type Stage = "form" | "code" | "confirm";
+/* "form" is the email step, "code" is the six digits. Every route in, with a
+   password or without one, finishes on the same code screen. */
+type Stage = "form" | "code";
 
 /* Supabase issues six digits. The client asked for four or five; four or five
    is not on offer, and six is what her own example screenshot showed. */
@@ -132,7 +132,7 @@ export function AuthForm({
 
       if (isSignup) {
         const { data, error: err } = await supabase.auth.signUp({
-          email,
+          email: address,
           password,
           options: {
             emailRedirectTo: authCallbackUrl(window.location.origin, next),
@@ -140,10 +140,14 @@ export function AuthForm({
           },
         });
         if (err) throw err;
-        // With email confirmation on, Supabase returns a user but no session.
-        // Saying "check your email" is the honest reading of that.
+        /* With email confirmation on, Supabase returns a user but no session,
+           and sends the Confirm signup email. That email carries the same six
+           digits as every other one, so this goes to the code screen rather
+           than telling someone to look for a link that is no longer in it.
+           verify() already tries the signup token type. */
         if (!data.session) {
-          setStage("confirm");
+          setCode("");
+          setStage("code");
           return;
         }
       } else {
@@ -220,18 +224,6 @@ export function AuthForm({
       verifying.current = false;
     }
   };
-
-  if (stage === "confirm") {
-    return (
-      <Confirm
-        email={email}
-        onBack={() => {
-          setStage("form");
-          setError("");
-        }}
-      />
-    );
-  }
 
   if (stage === "code") {
     return (
@@ -530,42 +522,6 @@ function CodeStep({
           Use a different email
         </button>
       </div>
-    </motion.div>
-  );
-}
-
-/* The password signup path still ends in the inbox: Supabase confirms a new
-   password account with a link, not a code. */
-function Confirm({ email, onBack }: { email: string; onBack: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="flex flex-col"
-    >
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-500">
-        <Mail size={22} />
-      </span>
-      <h1 className="display-xs mt-5">Check your email</h1>
-      <p className="mt-2 text-sm leading-relaxed text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-        We sent a confirmation link to{" "}
-        <span className="font-semibold text-[var(--color-ink)] dark:text-white">
-          {email}
-        </span>
-        . Open it and you will be signed straight in.
-      </p>
-      <p className="mt-4 text-xs text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-        Nothing after a minute or two? Check spam, or go back and try a
-        different address.
-      </p>
-      <button
-        type="button"
-        onClick={onBack}
-        className="mt-6 self-start text-sm font-semibold text-brand-600 hover:underline dark:text-brand-400"
-      >
-        Back
-      </button>
     </motion.div>
   );
 }
