@@ -402,6 +402,22 @@ export function AuthForm({
           {isSignup ? "Log in" : "Create an account"}
         </Link>
       </p>
+
+      {/* Terms nobody was shown are terms nobody agreed to. This is the line
+          that makes the two documents apply to the account being created,
+          and it is also where UK law wants the privacy notice: at the point
+          the email address is collected, not buried in a footer. */}
+      <p className="mt-4 text-center text-xs leading-relaxed text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
+        By continuing you agree to our{" "}
+        <Link href="/terms" className="underline underline-offset-2 hover:text-[var(--color-ink)] dark:hover:text-white">
+          Terms
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-[var(--color-ink)] dark:hover:text-white">
+          Privacy Policy
+        </Link>
+        .
+      </p>
     </motion.div>
   );
 }

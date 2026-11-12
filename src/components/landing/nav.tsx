@@ -70,10 +70,13 @@ export function Nav() {
           {/* Hidden on a phone. Measured at 393px the logo and this toggle
               met at exactly the same pixel with no gap between them, and a
               wordmark touching a control reads as broken even when nothing
-              technically overlaps. The toggle is the one thing here a
-              visitor can lose without noticing: next-themes follows the
-              system setting, so a phone in dark mode still arrives dark.
-              Log in stays, for the reason below. */}
+              technically overlaps. Of the things in this row the toggle is
+              the one a first time visitor needs least. The cost is real
+              though: the site opens in light for everyone (the theme
+              provider is set to light with system following off), so on a
+              phone there is no way to switch this page to dark. Signed in
+              users still can, from Settings. Log in stays, for the reason
+              below. */}
           <span className="hidden sm:flex">
             <ThemeToggle />
           </span>

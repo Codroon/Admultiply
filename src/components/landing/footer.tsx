@@ -23,9 +23,7 @@ import { viewportOnce } from "@/lib/motion";
    variants cannot reach.
 
    The links are grouped and honest. Everything under Product is a real anchor
-   on this page. Contact is a real mailto. Legal is the only placeholder and it
-   is marked as one below, because those pages have to exist before the product
-   takes money.
+   on this page. Contact is a real mailto. Legal goes to the two real pages.
 
    The wordmark at the bottom is the closing flourish, set in the display face
    at viewport scale and almost invisible. It gives the footer presence without
@@ -42,15 +40,16 @@ const GROUPS = [
   },
   {
     title: "Company",
-    links: [{ label: "Contact", href: "mailto:hello@admultiply.com" }],
+    /* .io, not .com. This pointed at admultiply.com for months, a domain
+       that is not ours, so every message sent from here went to a stranger
+       or nowhere. */
+    links: [{ label: "Contact", href: "mailto:hello@admultiply.io" }],
   },
   {
-    /* TODO before launch: both of these need real pages. Stripe will not let
-       the product take payments without terms and a privacy policy. */
     title: "Legal",
     links: [
-      { label: "Terms", href: "#" },
-      { label: "Privacy", href: "#" },
+      { label: "Terms", href: "/terms" },
+      { label: "Privacy", href: "/privacy" },
     ],
   },
 ];
