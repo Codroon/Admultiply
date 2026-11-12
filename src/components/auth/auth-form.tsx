@@ -32,9 +32,15 @@ type Method = "password" | "code";
    password or without one, finishes on the same code screen. */
 type Stage = "form" | "code";
 
-/* Supabase issues six digits. The client asked for four or five; four or five
-   is not on offer, and six is what her own example screenshot showed. */
-const CODE_LENGTH = 6;
+/* How long a code can be. Not a single fixed number, because Supabase does not
+   issue a single fixed number: the length is a per project setting, and
+   depending on when a project was created it sends six digits or eight. This
+   field used to cut everything to six and submit on the sixth digit, so an
+   eight digit code was truncated and rejected every time, on signup and login
+   alike, while the email itself arrived perfectly. Accept the whole range and
+   let Supabase decide what is valid. */
+const CODE_MIN = 6;
+const CODE_MAX = 10;
 const RESEND_SECONDS = 30;
 
 /* Supabase files the same six digits under different token types depending on
@@ -233,14 +239,18 @@ export function AuthForm({
         busy={busy === "code"}
         error={error}
         onChange={(value) => {
+          // Submit by itself only when the whole code lands in one go, which
+          // is what a paste or the phone's one-time-code autofill does. While
+          // someone is typing digit by digit there is no way to know which
+          // keystroke is the last, so that case waits for Continue rather
+          // than guessing and firing at six.
+          const arrivedWhole = value.length - code.length >= CODE_MIN;
           setCode(value);
           setError("");
-          // Six digits is the whole form. Making someone then reach for a
-          // button is a step that exists only because the code said so.
-          if (value.length === CODE_LENGTH) void verify(value);
+          if (arrivedWhole) void verify(value);
         }}
         onSubmit={() => {
-          if (code.length === CODE_LENGTH) void verify(code);
+          if (code.length >= CODE_MIN) void verify(code);
         }}
         onResend={async () => {
           setError("");
@@ -453,7 +463,7 @@ function CodeStep({
       </span>
       <h1 className="display-xs mt-5">Enter your code</h1>
       <p className="mt-2 text-sm leading-relaxed text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-        We sent a {CODE_LENGTH} digit code to{" "}
+        We sent a sign in code to{" "}
         <span className="font-semibold text-[var(--color-ink)] dark:text-white">
           {email}
         </span>
@@ -468,13 +478,13 @@ function CodeStep({
         className="mt-6"
       >
         <label htmlFor="code" className="sr-only">
-          {CODE_LENGTH} digit code
+          Sign in code
         </label>
         <input
           id="code"
           value={code}
           onChange={(e) =>
-            onChange(e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH))
+            onChange(e.target.value.replace(/\D/g, "").slice(0, CODE_MAX))
           }
           disabled={busy}
           autoFocus
@@ -483,15 +493,17 @@ function CodeStep({
           /* The hint that lets iOS and Android offer the code straight from
              the notification, which skips the inbox entirely. */
           autoComplete="one-time-code"
-          placeholder={"0".repeat(CODE_LENGTH)}
-          className="w-full rounded-xl border border-[var(--color-border-subtle)] bg-transparent px-4 py-3.5 text-center font-mono text-2xl font-bold tracking-[0.4em] indent-[0.4em] transition-colors placeholder:text-[var(--color-ink-muted)]/35 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:opacity-60 dark:border-white/12"
+          placeholder="Enter code"
+          /* The placeholder drops the mono, the tracking and the size: a row
+             of zeros promised a length we cannot know in advance. */
+          className="w-full rounded-xl border border-[var(--color-border-subtle)] bg-transparent px-4 py-3.5 text-center font-mono text-2xl font-bold tracking-[0.3em] indent-[0.3em] transition-colors placeholder:indent-0 placeholder:font-sans placeholder:text-base placeholder:font-medium placeholder:tracking-normal placeholder:text-[var(--color-ink-muted)]/60 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:opacity-60 dark:border-white/12"
         />
 
         {error && <Notice tone="error">{error}</Notice>}
 
         <button
           type="submit"
-          disabled={busy || code.length < CODE_LENGTH}
+          disabled={busy || code.length < CODE_MIN}
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-6 py-3.5 text-sm font-bold text-white shadow-[0_8px_24px_-10px_rgba(249,115,22,0.8)] transition-colors hover:bg-brand-600 disabled:opacity-60"
         >
           {busy ? <Loader2 size={16} className="animate-spin" /> : null}
@@ -501,7 +513,6 @@ function CodeStep({
       </form>
 
       <p className="mt-5 text-xs leading-relaxed text-[var(--color-ink-muted)] dark:text-[var(--color-ink-dark-muted)]">
-        The same email also has a link in it, if you would rather tap that.
         Nothing after a minute or two? Check your spam folder.
       </p>
 
